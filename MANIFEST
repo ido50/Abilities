@@ -1,0 +1,16 @@
+Changes
+MANIFEST
+Makefile.PL
+README
+lib/Abilities.pm
+lib/Abilities/DBIC/Action.pm
+lib/Abilities/DBIC/RoleAction.pm
+lib/Abilities/DBIC/RoleInheritance.pm
+lib/Abilities/DBIC/Role.pm
+lib/Abilities/DBIC/UserAction.pm
+lib/Abilities/DBIC/User.pm
+lib/Abilities/DBIC/UserRole.pm
+t/00-load.t
+t/manifest.t
+t/pod-coverage.t
+t/pod.t
