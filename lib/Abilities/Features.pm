@@ -1,12 +1,12 @@
-package Abilities;
+package Abilities::Features;
 
 use Any::Moose;
 
-has 'super_user_id' => (is => 'ro', isa => 'Int', default => 1);
+extends 'Abilities';
 
 =head1 NAME
 
-Abilities - Simple, hierarchical, pluggable user authorization.
+Abilities::Features - Extends Abilities with plan management for subscription-based web services.
 
 =head1 SYNOPSIS
 
@@ -73,137 +73,142 @@ end-user, which might be necessary in certain situations.
 
 =head2 new( [%options] )
 
-Creates a new instance of the Abilities module. Optionally, an options
-hash (or hash-ref) can be provided. Currently only the 'super_user_id'
+Creates a new instance of the Abilities::Features module. Optionally,
+an options hash (or hash-ref) can be provided. Currently only the 'super_user_id'
 options is supported, which defines the super user's ID; defaults to 1.
 
-=head2 can_perform( $user | $role, $action | @actions )
+=head2 has_feature( $user | $customer | $plan, $feature | @features )
 
-Receives a user/role object, and the name of an action (or names of actions),
-and returns a true value if the user/role can perform the provided
-action(s). If more than one actions are passed, a true value will be
-returned only if the user/role can perform ALL of these actions. This is
-a unified method that accepts both users and roles.
+Returns a true value if the user/customer/plan has the provided feature or features
+associated with it (either via plans or explicitly). If more than one
+features are passed, a true value will be returned only if the
+user/customer/plan has ALL of these features. This is a unified method
+that accepts both users, customers and plans.
 
 =cut
 
-sub can_perform {
+sub has_feature {
 	my ($self, $obj) = (shift, shift);
 
-	# the super-user can do whatever they want
-	return 1 if ref $obj =~ m/User/ && $obj->id == $Abilities::SUPER_USER_ID;
+	$obj = $obj->customer if ref $obj =~ m/User/;
 
-	ACTION: foreach (@_) {
-		# Check specific user abilities
-		foreach my $act ($obj->actions) {
-			next ACTION if $act->name eq $_; # great, we can do that
+	FEATURE: foreach (@_) {
+		# Check specific features
+		foreach my $feature ($obj->features) {
+			next FEATURE if $feature->name eq $_; # great, we can do that
 		}
-		# Check user abilities via roles
-		foreach my $role ($obj->roles) {
-			next ACTION if $self->can_perform($role, $_); # great, we can do that
+		# Check features via plans
+		foreach my $plan ($obj->plans) {
+			next FEATURE if $self->has_feature($plan, $_); # great, we can do that
 		}
 		
-		# if we've reached this spot, the user/role cannot perform
-		# this action, so return a false value
+		# if we've reached this spot, the user/customer/plan 
+		# does not have this feature, so return a false value.
 		return undef;
 	}
 
-	# if we've reached this spot, the user/role can perform all of
-	# the requested actions, so return true
+	# if we've reached this spot, the user/customer/plan has all the
+	# requested features, so return a true value
 	return 1;
 }
 
-=head2 belongs_to( $user, $role_name | @role_names )
+=head2 in_plan( $user | $customer, $plan_name | @plan_names )
 
-Receives a user object and a role name (or names), and returns a true value
-if the user is a member of the provided role. Only direct association is
-checked, so the user must be specifically assigned to that role, and not
-to a role that inherits from that role (see C<inherits_from_role()>). If more
-than one roles are passed, a true value will be returned only if the user
-is a member of ALL of these roles.
+Receives a user/customer object and the name of plan (or names of plans),
+and returns a true value if the user/customer is a direct member of the
+provided plan(s). Only direct association is checked, so the user/customer
+must be specifically assigned to that plan, and not to a plan that inherits
+from that plan (see C<inherits_from_plan()>). If more than one plans are
+passed, a true value will be returned only if the user is a member of ALL
+of these plans.
 
-This method only accepts users.
+This method accepts both user and customer objects.
 
 =cut
 
-sub belongs_to {
-	my ($self, $user) = (shift, shift);
+sub in_plan {
+	my ($self, $obj) = (shift, shift);
 
-	ROLE: foreach (@_) {
-		foreach my $role ($user->roles) {
-			next ROLE if $role->name eq $_; # great, the user belongs to this role
+	$obj = $obj->customer if ref $obj =~ m/User/;
+
+	PLAN: foreach (@_) {
+		foreach my $plan ($obj->plans) {
+			next PLAN if $plan->name eq $_; # great, the customer belongs to this plan
 		}
 		
-		# if we've reached this spot, the user does not belong to
-		# the role, so return a false value
+		# if we've reached this spot, the customer does not belong to
+		# the plan, so return a false value
 		return undef;
 	}
 
-	# if we've reached this spot, the user belongs to the rule,
+	# if we've reached this spot, the customer belongs to the plan,
 	# so return true.
 	return 1;
 }
 
-=head2 inherits_from_role( $user | $role, $role_name | @role_names )
+=head2 inherits_from_plan( $user | $customer | $plan, $role_name | @role_names )
 
-Receeives a user or role object and the name of a role (or names of roles),
-and returns a true value if the user/role inherits the actions of the provided role.
-If more than one roles are passed, a true value will be returned only if
-the user/role inherits from ALL of these roles.
+Returns a true value if the user/customer/plan inherits the features of
+the provided plan(s). If more than one plans are passed, a true value will
+be returned only if the user/customer/plan inherits from ALL of these plans.
 
 =cut
 
-sub inherits_from_role {
+sub inherits_from_plan {
 	my ($self, $obj) = (shift, shift);
 
+	$obj = $obj->customer if ref $obj =~ m/User/;
+
 	ROLE: foreach (@_) {
-		foreach my $role ($obj->roles) {
-			next ROLE if $role->name eq $_; # great, we inherit this
-			next ROLE if $self->inherits_from_role($role, $_); # great, we inherit this
+		foreach my $plan ($obj->plans) {
+			next ROLE if $plan->name eq $_; # great, we inherit this
+			next ROLE if $self->inherits_from_plan($plan, $_); # great, we inherit this
 		}
 		
-		# if we'e reached this spot, we do not inherit this role
+		# if we'e reached this spot, we do not inherit this plan
 		# so return false
 		return undef;
 	}
 	
-	# if we've reached this spot, we inherit all the supplied roles,
+	# if we've reached this spot, we inherit all the supplied plans,
 	# so return a true value
 	return 1;
 }
 
-=head2 abilities( $user | $role )
+=head2 features( $user | $customer | $plan )
 
-Returns a list of all actions that a user/role can perform, either due to
-direct association or due to inheritance.
+Returns a list of all features that a user/customer/plan can perform,
+either due to direct association or due to inheritance.
 
 =cut
 
-sub abilities {
-	keys %{$_[0]->_abilities($_[1])};
+sub features {
+	keys %{$_[0]->_features($_[1])};
 }
 
 =head1 INTERNAL METHODS
 
 These methods are only to be used internally.
 
-=head2 _abilities( $user | $role )
+=head2 _features( $user | $customer | $plan )
 
 =cut
 
-sub _abilities {
-	my ($self, $obj) = @_;
+sub _features {
+	my $obj = shift;
 
-	my $actions;
-	foreach my $act ($obj->actions) {
-		$actions->{$act->name} = 1;
+	$obj = $obj->customer if ref $obj =~ m/User/;
+
+	my $features;
+	foreach my $feature ($obj->features) {
+		$features->{$feature->name} = 1;
 	}
-	foreach my $role ($obj->roles) {
-		my $role_acts = $self->_abilities($role);
-		map { $actions->{$_} = $role_acts->{$_} } keys %$role_acts;
+	foreach my $plan ($obj->plans) {
+		my $plan_features = $self->_features($plan);
+		map { $features->{$_} = $plan_features->{$_} } keys %$plan_features;
 	}
 
-	return $actions;
+	return $features;
 }
 
 =head1 AUTHOR
@@ -256,5 +261,4 @@ See http://dev.perl.org/licenses/ for more information.
 
 =cut
 
-no Moose;
-__PACKAGE__->meta->make_immutable;
+1;
