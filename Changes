@@ -1,5 +1,7 @@
 Revision history for Abilities
 
-0.01    Date/time
-        First version, released on an unsuspecting world.
+{{$NEXT}}
+	- Initial release
+	- Base code extracted from my Catalyst::Plugin::Authorization::Abilities module
+	- Added the "Features" code to support customer-plan-features management
 

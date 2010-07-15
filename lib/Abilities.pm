@@ -1,33 +1,32 @@
 package Abilities;
 
-use Any::Moose;
+use Moose::Role;
 
-has 'super_user_id' => (is => 'ro', isa => 'Int', default => 1);
+requires 'roles';
+requires 'actions';
+requires 'is_super';
 
 =head1 NAME
 
-Abilities - Simple, hierarchical, pluggable user authorization.
+Abilities - Simple, hierarchical user authorization for web applications.
 
 =head1 SYNOPSIS
 
-	# use one of the Abilities base classes, for example in a
-	# DBIx::Class schema
+A L<Catalyst> example:
 
-	package MyApp::Schema::Result::User;
-	use base qw/Abilities::DBIC/;
+	sub do_stuff : Local {
+		my ($self, $c) = @_;
 
-	# then check authorization somewhere in your code (in this example
-	# a L<Catalyst> controller):
-
-	# get user from the Catalyst context
-	my $user = $c->user;
-	
-	# check if the user is able to do something
-	if ($user->can_perform('something')) {
-		do_something();
-	} else {
-		my @abilities = $user->abilities;
-		die "Hey you can't do that, you can only do ", join(', ', @abilities);
+		# get user from the Catalyst context
+		my $user = $c->user;
+		
+		# check if the user is able to do something
+		if ($user->can_perform('something')) {
+			do_something();
+		} else {
+			my @abilities = $user->abilities;
+			die "Hey you can't do that, you can only do ", join(', ', @abilities);
+		}
 	}
 
 =head1 DESCRIPTION
@@ -71,36 +70,29 @@ end-user, which might be necessary in certain situations.
 
 =head1 METHODS
 
-=head2 new( [%options] )
+=head2 can_perform( $action | @actions )
 
-Creates a new instance of the Abilities module. Optionally, an options
-hash (or hash-ref) can be provided. Currently only the 'super_user_id'
-options is supported, which defines the super user's ID; defaults to 1.
-
-=head2 can_perform( $user | $role, $action | @actions )
-
-Receives a user/role object, and the name of an action (or names of actions),
-and returns a true value if the user/role can perform the provided
-action(s). If more than one actions are passed, a true value will be
-returned only if the user/role can perform ALL of these actions. This is
-a unified method that accepts both users and roles.
+Receives the name of an action (or names of actions), and returns a true
+value if the user/role can perform the provided action(s). If more than
+one actions are passed, a true value will be returned only if the user/role
+can perform ALL of these actions.
 
 =cut
 
 sub can_perform {
-	my ($self, $obj) = (shift, shift);
+	my $self = shift;
 
-	# the super-user can do whatever they want
-	return 1 if ref $obj =~ m/User/ && $obj->id == $Abilities::SUPER_USER_ID;
+	# a super-user can do whatever they want
+	return 1 if $self->is_super;
 
 	ACTION: foreach (@_) {
 		# Check specific user abilities
-		foreach my $act ($obj->actions) {
+		foreach my $act ($self->actions) {
 			next ACTION if $act->name eq $_; # great, we can do that
 		}
 		# Check user abilities via roles
-		foreach my $role ($obj->roles) {
-			next ACTION if $self->can_perform($role, $_); # great, we can do that
+		foreach my $role ($self->roles) {
+			next ACTION if $role->can_perform($_); # great, we can do that
 		}
 		
 		# if we've reached this spot, the user/role cannot perform
@@ -113,28 +105,38 @@ sub can_perform {
 	return 1;
 }
 
-=head2 belongs_to( $user, $role_name | @role_names )
+=head2 belongs_to( $role_name | @role_names )
 
-Receives a user object and a role name (or names), and returns a true value
-if the user is a member of the provided role. Only direct association is
-checked, so the user must be specifically assigned to that role, and not
-to a role that inherits from that role (see C<inherits_from_role()>). If more
-than one roles are passed, a true value will be returned only if the user
-is a member of ALL of these roles.
+=head2 takes_from( $role_name | @role_names )
 
-This method only accepts users.
+The above two methods are actually the same. The names are meant to differentiate
+between user objects (first case) and role objects (second case).
+
+These methods receive a role name (or names). In case of a user object,
+the method will return a true value if the user is a direct member of the
+provided role. In case multiple role names were provided, a true value will
+be returned only if the user is a member of ALL of these roles. Only direct
+association is checked, so the user must be specifically assigned to the
+provided role, and not to a role that inherits from that role (see C<inherits_from_role()>
+instead.
+
+In case of a role object, this method will return a true value if the role
+directly consumes the abilities of the provided role. In case multiple role
+names were provided, a true value will be returned only if the role directly
+consumes ALL of these roles. Like in case of a user, only direct association
+is checked, so inheritance doesn't count.
 
 =cut
 
 sub belongs_to {
-	my ($self, $user) = (shift, shift);
+	my $self = shift;
 
 	ROLE: foreach (@_) {
-		foreach my $role ($user->roles) {
-			next ROLE if $role->name eq $_; # great, the user belongs to this role
+		foreach my $role ($self->roles) {
+			next ROLE if $role->name eq $_; # great, the user/role belongs to this role
 		}
 		
-		# if we've reached this spot, the user does not belong to
+		# if we've reached this spot, the user/role does not belong to
 		# the role, so return a false value
 		return undef;
 	}
@@ -144,22 +146,26 @@ sub belongs_to {
 	return 1;
 }
 
-=head2 inherits_from_role( $user | $role, $role_name | @role_names )
+=head2 inherits_from_role( $role_name | @role_names )
 
-Receeives a user or role object and the name of a role (or names of roles),
-and returns a true value if the user/role inherits the actions of the provided role.
-If more than one roles are passed, a true value will be returned only if
-the user/role inherits from ALL of these roles.
+Receives the name of a role (or names of roles), and returns a true value
+if the user/role inherits the abilities of the provided role. If more than
+one roles are passed, a true value will be returned only if the user/role
+inherits from ALL of these roles.
+
+This method takes inheritance into account, so if a user was directly assigned
+to the 'admins' role, and the 'admins' role inherits from the 'devs' role,
+then inherits_from_role('devs') will return true for that user.
 
 =cut
 
 sub inherits_from_role {
-	my ($self, $obj) = (shift, shift);
+	my $self = shift;
 
 	ROLE: foreach (@_) {
-		foreach my $role ($obj->roles) {
+		foreach my $role ($self->roles) {
 			next ROLE if $role->name eq $_; # great, we inherit this
-			next ROLE if $self->inherits_from_role($role, $_); # great, we inherit this
+			next ROLE if $role->inherits_from_role($_); # great, we inherit this
 		}
 		
 		# if we'e reached this spot, we do not inherit this role
@@ -172,7 +178,7 @@ sub inherits_from_role {
 	return 1;
 }
 
-=head2 abilities( $user | $role )
+=head2 abilities()
 
 Returns a list of all actions that a user/role can perform, either due to
 direct association or due to inheritance.
@@ -180,26 +186,26 @@ direct association or due to inheritance.
 =cut
 
 sub abilities {
-	keys %{$_[0]->_abilities($_[1])};
+	keys %{$_[0]->_abilities()};
 }
 
 =head1 INTERNAL METHODS
 
 These methods are only to be used internally.
 
-=head2 _abilities( $user | $role )
+=head2 _abilities()
 
 =cut
 
 sub _abilities {
-	my ($self, $obj) = @_;
+	my $self = shift;
 
 	my $actions;
-	foreach my $act ($obj->actions) {
+	foreach my $act ($self->actions) {
 		$actions->{$act->name} = 1;
 	}
-	foreach my $role ($obj->roles) {
-		my $role_acts = $self->_abilities($role);
+	foreach my $role ($self->roles) {
+		my $role_acts = $role->_abilities;
 		map { $actions->{$_} = $role_acts->{$_} } keys %$role_acts;
 	}
 
@@ -256,5 +262,4 @@ See http://dev.perl.org/licenses/ for more information.
 
 =cut
 
-no Moose;
-__PACKAGE__->meta->make_immutable;
+1;
