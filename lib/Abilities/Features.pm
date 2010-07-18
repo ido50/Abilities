@@ -1,8 +1,10 @@
 package Abilities::Features;
 
-use Any::Moose;
+use Moose::Role;
+use namespace::autoclean;
 
-extends 'Abilities';
+requires 'plans';
+requires 'features';
 
 =head1 NAME
 
@@ -77,29 +79,26 @@ Creates a new instance of the Abilities::Features module. Optionally,
 an options hash (or hash-ref) can be provided. Currently only the 'super_user_id'
 options is supported, which defines the super user's ID; defaults to 1.
 
-=head2 has_feature( $user | $customer | $plan, $feature | @features )
+=head2 has_feature( $feature | @features )
 
-Returns a true value if the user/customer/plan has the provided feature or features
+Returns a true value if the customer/plan has the provided feature or features
 associated with it (either via plans or explicitly). If more than one
 features are passed, a true value will be returned only if the
-user/customer/plan has ALL of these features. This is a unified method
-that accepts both users, customers and plans.
+customer/plan has ALL of these features.
 
 =cut
 
 sub has_feature {
-	my ($self, $obj) = (shift, shift);
-
-	$obj = $obj->customer if ref $obj =~ m/User/;
+	my $self = shift;
 
 	FEATURE: foreach (@_) {
 		# Check specific features
-		foreach my $feature ($obj->features) {
+		foreach my $feature ($self->features) {
 			next FEATURE if $feature->name eq $_; # great, we can do that
 		}
 		# Check features via plans
-		foreach my $plan ($obj->plans) {
-			next FEATURE if $self->has_feature($plan, $_); # great, we can do that
+		foreach my $plan ($self->plans) {
+			next FEATURE if $plan->has_feature($_); # great, we can do that
 		}
 		
 		# if we've reached this spot, the user/customer/plan 
@@ -112,27 +111,22 @@ sub has_feature {
 	return 1;
 }
 
-=head2 in_plan( $user | $customer, $plan_name | @plan_names )
+=head2 in_plan( $plan_name | @plan_names )
 
-Receives a user/customer object and the name of plan (or names of plans),
-and returns a true value if the user/customer is a direct member of the
-provided plan(s). Only direct association is checked, so the user/customer
-must be specifically assigned to that plan, and not to a plan that inherits
-from that plan (see C<inherits_from_plan()>). If more than one plans are
-passed, a true value will be returned only if the user is a member of ALL
-of these plans.
-
-This method accepts both user and customer objects.
+Receives the name of plan (or names of plans), and returns a true value
+if the user/customer is a direct member of the provided plan(s). Only
+direct association is checked, so the user/customer must be specifically
+assigned to that plan, and not to a plan that inherits from that plan
+(see C<inherits_from_plan()>). If more than one plans are passed, a true
+value will be returned only if the user is a member of ALL of these plans.
 
 =cut
 
 sub in_plan {
-	my ($self, $obj) = (shift, shift);
-
-	$obj = $obj->customer if ref $obj =~ m/User/;
+	my $self = shift;
 
 	PLAN: foreach (@_) {
-		foreach my $plan ($obj->plans) {
+		foreach my $plan ($self->plans) {
 			next PLAN if $plan->name eq $_; # great, the customer belongs to this plan
 		}
 		
@@ -146,23 +140,21 @@ sub in_plan {
 	return 1;
 }
 
-=head2 inherits_from_plan( $user | $customer | $plan, $role_name | @role_names )
+=head2 inherits_from_plan( $role_name | @role_names )
 
-Returns a true value if the user/customer/plan inherits the features of
+Returns a true value if the customer/plan inherits the features of
 the provided plan(s). If more than one plans are passed, a true value will
-be returned only if the user/customer/plan inherits from ALL of these plans.
+be returned only if the customer/plan inherits from ALL of these plans.
 
 =cut
 
 sub inherits_from_plan {
-	my ($self, $obj) = (shift, shift);
-
-	$obj = $obj->customer if ref $obj =~ m/User/;
+	my $self = shift;
 
 	ROLE: foreach (@_) {
-		foreach my $plan ($obj->plans) {
+		foreach my $plan ($self->plans) {
 			next ROLE if $plan->name eq $_; # great, we inherit this
-			next ROLE if $self->inherits_from_plan($plan, $_); # great, we inherit this
+			next ROLE if $plan->inherits_from_plan($_); # great, we inherit this
 		}
 		
 		# if we'e reached this spot, we do not inherit this plan
@@ -175,36 +167,34 @@ sub inherits_from_plan {
 	return 1;
 }
 
-=head2 features( $user | $customer | $plan )
+=head2 features()
 
-Returns a list of all features that a user/customer/plan can perform,
-either due to direct association or due to inheritance.
+Returns a list of all features that a customer/plan has, either due to
+direct association or due to inheritance.
 
 =cut
 
 sub features {
-	keys %{$_[0]->_features($_[1])};
+	keys %{$_[0]->_features()};
 }
 
 =head1 INTERNAL METHODS
 
 These methods are only to be used internally.
 
-=head2 _features( $user | $customer | $plan )
+=head2 _features()
 
 =cut
 
 sub _features {
-	my $obj = shift;
-
-	$obj = $obj->customer if ref $obj =~ m/User/;
+	my $self = shift;
 
 	my $features;
-	foreach my $feature ($obj->features) {
+	foreach my $feature ($self->features) {
 		$features->{$feature->name} = 1;
 	}
-	foreach my $plan ($obj->plans) {
-		my $plan_features = $self->_features($plan);
+	foreach my $plan ($self->plans) {
+		my $plan_features = $plan->_features;
 		map { $features->{$_} = $plan_features->{$_} } keys %$plan_features;
 	}
 
@@ -261,4 +251,5 @@ See http://dev.perl.org/licenses/ for more information.
 
 =cut
 
+__PACKAGE__->meta->make_immutable;
 1;
