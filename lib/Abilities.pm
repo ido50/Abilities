@@ -83,7 +83,7 @@ can perform ALL of these actions.
 sub can_perform {
 	my $self = shift;
 
-	# a super-user can do whatever they want
+	# a super-user/super-role can do whatever they want
 	return 1 if $self->is_super;
 
 	ACTION: foreach (@_) {
@@ -98,7 +98,7 @@ sub can_perform {
 		
 		# if we've reached this spot, the user/role cannot perform
 		# this action, so return a false value
-		return undef;
+		return;
 	}
 
 	# if we've reached this spot, the user/role can perform all of
@@ -139,7 +139,7 @@ sub belongs_to {
 		
 		# if we've reached this spot, the user/role does not belong to
 		# the role, so return a false value
-		return undef;
+		return;
 	}
 
 	# if we've reached this spot, the user belongs to the rule,
@@ -171,7 +171,7 @@ sub inherits_from_role {
 		
 		# if we'e reached this spot, we do not inherit this role
 		# so return false
-		return undef;
+		return;
 	}
 	
 	# if we've reached this spot, we inherit all the supplied roles,

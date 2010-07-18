@@ -103,7 +103,7 @@ sub has_feature {
 		
 		# if we've reached this spot, the user/customer/plan 
 		# does not have this feature, so return a false value.
-		return undef;
+		return;
 	}
 
 	# if we've reached this spot, the user/customer/plan has all the
@@ -132,7 +132,7 @@ sub in_plan {
 		
 		# if we've reached this spot, the customer does not belong to
 		# the plan, so return a false value
-		return undef;
+		return;
 	}
 
 	# if we've reached this spot, the customer belongs to the plan,
@@ -159,7 +159,7 @@ sub inherits_from_plan {
 		
 		# if we'e reached this spot, we do not inherit this plan
 		# so return false
-		return undef;
+		return;
 	}
 	
 	# if we've reached this spot, we inherit all the supplied plans,
