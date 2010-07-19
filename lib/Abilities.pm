@@ -147,6 +147,12 @@ sub belongs_to {
 	return 1;
 }
 
+sub takes_from {
+	my $self = shift;
+
+	return $self->belongs_to(@_);
+}
+
 =head2 inherits_from_role( $role_name | @role_names )
 
 Receives the name of a role (or names of roles), and returns a true value
