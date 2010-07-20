@@ -1,55 +1,186 @@
-Abilities
+NAME
+    Abilities - Simple, hierarchical user authorization for web
+    applications, with optional support for plan-based paid services.
 
-The README is used to introduce the module and provide instructions on
-how to install the module, any machine dependencies it may have (for
-example C compilers and installed libraries) and any other information
-that should be provided before the module is installed.
+SYNOPSIS
+            use Abilities;
 
-A README file is required for CPAN modules since CPAN extracts the README
-file from a module distribution so that people browsing the archive
-can use it to get an idea of the module's uses. It is usually a good idea
-to provide version information here so that people can decide whether
-fixes for the module are worth downloading.
+            # get a user object that consumed the Abilities role
+            my $user = MyApp->get_user('username');
+                
+            # check if the user is able to do something
+            if ($user->can_perform('something')) {
+                    do_something();
+            } else {
+                    die "Hey you can't do that, you can only do ", join(', ', $user->abilities);
+            }
 
+DESCRIPTION
+    Abilities is a simple yet powerful mechanism for authorizing users of
+    web applications to perform certain actions in the app's code. This is
+    an extension of the familiar role-based access control that is common in
+    various systems and frameworks like Catalyst (See
+    Catalyst::Plugin::Authorization::Roles for the role-based implementation
+    and Catalyst::Plugin::Authorization::Abilities for the ability-based
+    implementation that inspired this module).
 
-INSTALLATION
+    As opposed to the role-based access control - where users are allowed
+    access to a certain feature (here called 'action') only through their
+    association to a certain role that is hard-coded in the program's code -
+    in ability-based acccess control, a list of actions is assigned to every
+    user, and they are only allowed to perform these actions. Actions are
+    not assigned by the developer during development, but rather by the
+    end-user during deployment. This allows for much more flexibility, and
+    also speeds up development, as you (the developer) do not need to think
+    about who should be allowed to perform a certain action, and can easily
+    grant access later-on after deployment (assuming you're also the
+    end-user).
 
-To install this module, run the following commands:
+    Abilities to perform certain actions can be given to a user
+    specifically, or via roles the user can assume (as in role-based access
+    control). For example, if user 'user01' is a member of role 'admin', and
+    this user wishes to perform some action, for example 'delete_foo', then
+    they will only be able to do so if the 'delete_foo' ability was given to
+    either the user itself or the 'admin' role itself. Furthermore, roles
+    can be assigned other roles; for example, roles 'mods' and 'editors' can
+    be assigned _inside_ role 'mega_mods'. Users of the 'mega_mods' role
+    will assume all actions owned by the 'mods' and 'editors' roles.
 
-	perl Makefile.PL
-	make
-	make test
-	make install
+    A commonly known use-case for this type of access control is message
+    boards, where the administrator might wish to create roles with certain
+    actions and associate users with the roles (more commonly called 'user
+    groups'); for example, the admin can create an 'editor' role, giving
+    users of this role the ability to edit and delete posts, but not any
+    other administrative action. So in essence, this type of access control
+    relieves the developer from deciding who gets to do what and passes
+    these decisions to the end-user, which might be necessary in certain
+    situations.
 
-SUPPORT AND DOCUMENTATION
+    The Abilities module is implemented as a Moose role. In order to be able
+    to use this mechanism, web applications must implement a user management
+    system that will consume this role. More specifically, a user class and
+    a role class must be implemented, consuming this role. Entities is a
+    reference implementation that can be used by web applications, or just
+    as an example of an ability-based authorization system. Entities::User
+    and Entities::Role are the user and role classes that consume the
+    Abilities role in the Entities distribution.
 
-After installing, you can find documentation for this module with the
-perldoc command.
+  PAID, SUBSCRIPTION-BASED WEB SERVICES
+    Apart from the scenario described above, this module also provides
+    optional support for subscription-based web services, such as those
+    where customers subscribe to a certain paid (or free, doesn't matter)
+    plan from a list of available plans (GitHub is an example of such a
+    service). This functionality is also implemented as a role, in the
+    Abilities::Features module provided with this distribution. Read its
+    documentation for detailed information.
 
-    perldoc Abilities
+REQUIRED METHODS
+    Classes that consume this role are required to implement the following
+    methods:
 
-You can also look for information at:
+  roles()
+    Returns a list of all roles that a user object belongs to, or a role
+    object inherits from. The list must contain references to the role
+    objects, not just their names.
 
-    RT, CPAN's request tracker
-        http://rt.cpan.org/NoAuth/Bugs.html?Dist=Abilities
+  actions()
+    Returns a list of all actions that a user object has been explicitely
+    granted, or that a role object has been granted. The list must contain
+    references to the action objects, not just their names.
 
-    AnnoCPAN, Annotated CPAN documentation
-        http://annocpan.org/dist/Abilities
+  is_super()
+    This is a boolean attribute that both user and role objects should have.
+    If a user/role object has a true value for this attribute, then they
+    will be able to perform any action, even if it wasn't granted to them.
 
-    CPAN Ratings
-        http://cpanratings.perl.org/d/Abilities
+METHODS
+    Classes that consume this role will have the following methods available
+    for them:
 
-    Search CPAN
-        http://search.cpan.org/dist/Abilities/
+  can_perform( $action_name | @action_names )
+    Receives the name of an action (or names of actions), and returns a true
+    value if the user/role can perform the provided action(s). If more than
+    one actions are passed, a true value will be returned only if the
+    user/role can perform ALL of these actions.
 
+  belongs_to( $role_name | @role_names )
+  takes_from( $role_name | @role_names )
+    The above two methods are actually the same. The names are meant to
+    differentiate between user objects (first case) and role objects (second
+    case).
+
+    These methods receive a role name (or names). In case of a user object,
+    the method will return a true value if the user is a direct member of
+    the provided role. In case multiple role names were provided, a true
+    value will be returned only if the user is a member of ALL of these
+    roles. Only direct association is checked, so the user must be
+    specifically assigned to the provided role, and not to a role that
+    inherits from that role (see "inherits_from_role()" instead.
+
+    In case of a role object, this method will return a true value if the
+    role directly consumes the abilities of the provided role. In case
+    multiple role names were provided, a true value will be returned only if
+    the role directly consumes ALL of these roles. Like in case of a user,
+    only direct association is checked, so inheritance doesn't count.
+
+  inherits_from_role( $role_name | @role_names )
+    Receives the name of a role (or names of roles), and returns a true
+    value if the user/role inherits the abilities of the provided role. If
+    more than one roles are passed, a true value will be returned only if
+    the user/role inherits from ALL of these roles.
+
+    This method takes inheritance into account, so if a user was directly
+    assigned to the 'admins' role, and the 'admins' role inherits from the
+    'devs' role, then inherits_from_role('devs') will return true for that
+    user.
+
+  all_abilities()
+    Returns a list of all actions that a user/role can perform, either due
+    to direct association or due to inheritance.
+
+INTERNAL METHODS
+    These methods are only to be used internally.
+
+  _all_abilities()
+AUTHOR
+    Ido Perlmuter, "<ido at ido50 dot net>"
+
+BUGS
+    Please report any bugs or feature requests to "bug-abilities at
+    rt.cpan.org", or through the web interface at
+    <http://rt.cpan.org/NoAuth/ReportBug.html?Queue=Abilities>. I will be
+    notified, and then you'll automatically be notified of progress on your
+    bug as I make changes.
+
+SUPPORT
+    You can find documentation for this module with the perldoc command.
+
+        perldoc Abilities
+
+    You can also look for information at:
+
+    *   RT: CPAN's request tracker
+
+        <http://rt.cpan.org/NoAuth/Bugs.html?Dist=Abilities>
+
+    *   AnnoCPAN: Annotated CPAN documentation
+
+        <http://annocpan.org/dist/Abilities>
+
+    *   CPAN Ratings
+
+        <http://cpanratings.perl.org/d/Abilities>
+
+    *   Search CPAN
+
+        <http://search.cpan.org/dist/Abilities/>
 
 LICENSE AND COPYRIGHT
+    Copyright 2010 Ido Perlmuter.
 
-Copyright (C) 2010 Ido Perlmuter
+    This program is free software; you can redistribute it and/or modify it
+    under the terms of either: the GNU General Public License as published
+    by the Free Software Foundation; or the Artistic License.
 
-This program is free software; you can redistribute it and/or modify it
-under the terms of either: the GNU General Public License as published
-by the Free Software Foundation; or the Artistic License.
-
-See http://dev.perl.org/licenses/ for more information.
+    See http://dev.perl.org/licenses/ for more information.
 

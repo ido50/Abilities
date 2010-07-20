@@ -3,8 +3,7 @@ package Abilities::Features;
 use Moose::Role;
 use namespace::autoclean;
 
-requires 'plans';
-requires 'features';
+# ABSTRACT: Extends Abilities with plan management for subscription-based web services.
 
 =head1 NAME
 
@@ -12,74 +11,83 @@ Abilities::Features - Extends Abilities with plan management for subscription-ba
 
 =head1 SYNOPSIS
 
-	# use one of the Abilities base classes, for example in a
-	# DBIx::Class schema
+	use Abilities::Features;
 
-	package MyApp::Schema::Result::User;
-	use base qw/Abilities::DBIC/;
-
-	# then check authorization somewhere in your code (in this example
-	# a L<Catalyst> controller):
-
-	# get user from the Catalyst context
-	my $user = $c->user;
-	
+	# get a user object that consumed the Abilities role
+	my $user = MyApp->get_user('username');
+		
 	# check if the user is able to do something
 	if ($user->can_perform('something')) {
 		do_something();
 	} else {
-		my @abilities = $user->abilities;
-		die "Hey you can't do that, you can only do ", join(', ', @abilities);
+		die "Hey you can't do that, you can only do ", join(', ', $user->abilities);
 	}
 
 =head1 DESCRIPTION
 
-Abilities is a simple mechanism for authorizing them to perform certain
-actions in your code. This is an extension of the familiar role-based
-access control that is common in various systems and frameworks like L<Catalyst>
-(See L<Catalyst::Plugin::Authorization::Roles> for the role-based
-implementation and L<Catalyst::Plugin::Authorization::Abilities>
-for the ability-based implementation that uses this module).
+This L<Moose role|Moose::Role> extends the ability-based authorization
+system defined by the L<Abilities> module with customer and plan management
+for subscription-based web services. This includes paid services, where
+customers subscribe to a plan from a list of available plans, each plan
+with a different set of features. Examples of such a service are GitHub
+(a Git revision control hosting service, where customers purchase a plan
+that provides them with different amounts of storage, SSH support, etc.)
+and MailChimp (email marketing service where customers purchase plans
+that provide them with different amounts of monthly emails to send and
+other features).
 
-As opposed to the role-based access control - where users are allowed access
-to a certain feature (here called 'action') only through their association
-to a certain role that is hard-coded in the program's code - in ability-based
-acccess control, a list of actions is assigned to every user, and they are
-only allowed to perform these actions. Actions are not assigned by the
-developer during development, but rather by the end-user during deployment.
-This allows for much more flexibility, and also speeds up development,
-as you (the developer) do not need to think about who should be allowed
-to perform a certain action, and can easily grant access later on after
-deployment (assuming you're also the end-user).
+The L<Abilities> role defined three entities: users, roles and actions.
+This role defines three more entities: customers, plans and features.
+Customers are organizations, companies or individuals that subscribe to
+your web service. They can subscribe to any number of plans, and thus be
+provided with the features of these plans. The users from the Abilities
+module will now be children of the customers. They still go on being members
+of roles and performing actions they are granted with, but now possibly
+only within the scope of their parent customer, and to the limits defined
+in the customer's plan. Plans can inherit features from other plans, allowing
+for defining plans faster and easier.
 
-Abilities to perform certain actions can be given to a user specifically, or
-via roles the user can assume (as in role-based access control). For example,
-if user 'user01' is a member of role 'admin', and this user wishes to perform
-some action, for example 'delete_foo', then they will only be able to do
-so if the 'delete_foo' ability was given to either the user itself or the
-'admin' role itself. Furthermore, roles can be assigned other roles; for
-example, roles 'mods' and 'editors' can be assigned _inside_ role 'mega_mods'.
-Users of the 'mega_mods' role will assume all actions owned by the 'mods'
-and 'editors' roles.
+Customer and plan objects are meant to consume the Abilities::Features
+role. L<Entities> is a reference implementation of both the L<Abilities> and
+L<Abilities::Features> roles. It is meant to be used as-is by web applications,
+or just as an example of how a user management and authorization system
+that consumes these roles might look like. L<Entities::Customer> and
+L<Entities::Plan> are customer and plan classes that consume this role.
 
-A commonly known use-case for this type of access control is message boards,
-where the administrator might wish to create roles with certain actions
-and associate users with the roles (more commonly called 'user groups');
-for example, the admin can create an 'editor' role, giving users of this
-role the ability to edit and delete posts, but not any other administrative
-action. So in essence, this type of access control relieves the developer
-from deciding who gets to do what and passes these decisions to the
-end-user, which might be necessary in certain situations.
+More information about how these roles work can be found in the L<Entities>
+documentation.
+
+=head1 REQUIRED METHODS
+
+Customer and plan classes that consume this role are required to provide
+the following methods:
+
+=head2 plans()
+
+This method returns a list of all plans that a customer has subscribed to,
+or that a plan inherits from. The list should have references to the plan
+objects, not just their names.
+
+=cut
+
+requires 'plans';
+
+=head2 features()
+
+This method returns a list of all features that a customer has explicitely
+been given, or that a plan has. The list should have references to the
+feature objects, not just their names.
+
+=cut
+
+requires 'features';
 
 =head1 METHODS
 
-=head2 new( [%options] )
+Classes that consume this role will have the following methods provided
+to them:
 
-Creates a new instance of the Abilities::Features module. Optionally,
-an options hash (or hash-ref) can be provided. Currently only the 'super_user_id'
-options is supported, which defines the super user's ID; defaults to 1.
-
-=head2 has_feature( $feature | @features )
+=head2 has_feature( $feature_name | @feature_names )
 
 Returns a true value if the customer/plan has the provided feature or features
 associated with it (either via plans or explicitly). If more than one
@@ -169,7 +177,7 @@ sub inherits_from_plan {
 
 =head2 all_features()
 
-Returns a list of all features that a customer/plan has, either due to
+Returns a list of all feature names that a customer/plan has, either due to
 direct association or due to inheritance.
 
 =cut
@@ -215,7 +223,7 @@ automatically be notified of progress on your bug as I make changes.
 
 You can find documentation for this module with the perldoc command.
 
-    perldoc Abilities
+    perldoc Abilities::Features
 
 You can also look for information at:
 

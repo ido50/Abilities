@@ -3,41 +3,34 @@ package Abilities;
 use Moose::Role;
 use namespace::autoclean;
 
-requires 'roles';
-requires 'actions';
-requires 'is_super';
+# ABSTRACT: Simple, hierarchical user authorization for web applications, with optional support for plan-based paid services.
 
 =head1 NAME
 
-Abilities - Simple, hierarchical user authorization for web applications.
+Abilities - Simple, hierarchical user authorization for web applications, with optional support for plan-based paid services.
 
 =head1 SYNOPSIS
 
-A L<Catalyst> example:
+	use Abilities;
 
-	sub do_stuff : Local {
-		my ($self, $c) = @_;
-
-		# get user from the Catalyst context
-		my $user = $c->user;
+	# get a user object that consumed the Abilities role
+	my $user = MyApp->get_user('username');
 		
-		# check if the user is able to do something
-		if ($user->can_perform('something')) {
-			do_something();
-		} else {
-			my @abilities = $user->abilities;
-			die "Hey you can't do that, you can only do ", join(', ', @abilities);
-		}
+	# check if the user is able to do something
+	if ($user->can_perform('something')) {
+		do_something();
+	} else {
+		die "Hey you can't do that, you can only do ", join(', ', $user->abilities);
 	}
 
 =head1 DESCRIPTION
 
-Abilities is a simple mechanism for authorizing them to perform certain
-actions in your code. This is an extension of the familiar role-based
-access control that is common in various systems and frameworks like L<Catalyst>
-(See L<Catalyst::Plugin::Authorization::Roles> for the role-based
-implementation and L<Catalyst::Plugin::Authorization::Abilities>
-for the ability-based implementation that uses this module).
+Abilities is a simple yet powerful mechanism for authorizing users of web
+applications to perform certain actions in the app's code. This is an
+extension of the familiar role-based access control that is common in
+various systems and frameworks like L<Catalyst> (See L<Catalyst::Plugin::Authorization::Roles>
+for the role-based implementation and L<Catalyst::Plugin::Authorization::Abilities>
+for the ability-based implementation that inspired this module).
 
 As opposed to the role-based access control - where users are allowed access
 to a certain feature (here called 'action') only through their association
@@ -47,7 +40,7 @@ only allowed to perform these actions. Actions are not assigned by the
 developer during development, but rather by the end-user during deployment.
 This allows for much more flexibility, and also speeds up development,
 as you (the developer) do not need to think about who should be allowed
-to perform a certain action, and can easily grant access later on after
+to perform a certain action, and can easily grant access later-on after
 deployment (assuming you're also the end-user).
 
 Abilities to perform certain actions can be given to a user specifically, or
@@ -69,9 +62,65 @@ action. So in essence, this type of access control relieves the developer
 from deciding who gets to do what and passes these decisions to the
 end-user, which might be necessary in certain situations.
 
+The Abilities module is implemented as a L<Moose role|Moose::Role>. In order
+to be able to use this mechanism, web applications must implement a user
+management system that will consume this role. More specifically, a user
+class and a role class must be implemented, consuming this role. L<Entities>
+is a reference implementation that can be used by web applications, or
+just as an example of an ability-based authorization system. L<Entities::User>
+and L<Entities::Role> are the user and role classes that consume the Abilities
+role in the Entities distribution.
+
+=head2 PAID, SUBSCRIPTION-BASED WEB SERVICES
+
+Apart from the scenario described above, this module also provides optional
+support for subscription-based web services, such as those where customers
+subscribe to a certain paid (or free, doesn't matter) plan from a list
+of available plans (GitHub is an example of such a service). This functionality
+is also implemented as a role, in the L<Abilities::Features> module provided
+with this distribution. Read its documentation for detailed information.
+
+=head1 REQUIRED METHODS
+
+Classes that consume this role are required to implement the following
+methods:
+
+=head2 roles()
+
+Returns a list of all roles that a user object belongs to, or a role object
+inherits from. The list must contain references to the role objects, not
+just their names.
+
+=cut
+
+requires 'roles';
+
+=head2 actions()
+
+Returns a list of all actions that a user object has been explicitely granted,
+or that a role object has been granted. The list must contain references
+to the action objects, not just their names.
+
+=cut
+
+requires 'actions';
+
+=head2 is_super()
+
+This is a boolean attribute that both user and role objects should have.
+If a user/role object has a true value for this attribute, then they
+will be able to perform any action, even if it wasn't granted to them.
+
+=cut
+
+requires 'is_super';
+
 =head1 METHODS
 
-=head2 can_perform( $action | @actions )
+Classes that consume this role will have the following methods available
+for them:
+
+=head2 can_perform( $action_name | @action_names )
 
 Receives the name of an action (or names of actions), and returns a true
 value if the user/role can perform the provided action(s). If more than
