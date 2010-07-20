@@ -185,26 +185,26 @@ sub inherits_from_role {
 	return 1;
 }
 
-=head2 abilities()
+=head2 all_abilities()
 
 Returns a list of all actions that a user/role can perform, either due to
 direct association or due to inheritance.
 
 =cut
 
-sub abilities {
-	keys %{$_[0]->_abilities()};
+sub all_abilities {
+	keys %{$_[0]->_all_abilities()};
 }
 
 =head1 INTERNAL METHODS
 
 These methods are only to be used internally.
 
-=head2 _abilities()
+=head2 _all_abilities()
 
 =cut
 
-sub _abilities {
+sub _all_abilities {
 	my $self = shift;
 
 	my $actions;

@@ -167,26 +167,26 @@ sub inherits_from_plan {
 	return 1;
 }
 
-=head2 features()
+=head2 all_features()
 
 Returns a list of all features that a customer/plan has, either due to
 direct association or due to inheritance.
 
 =cut
 
-sub features {
-	keys %{$_[0]->_features()};
+sub all_features {
+	keys %{$_[0]->_all_features()};
 }
 
 =head1 INTERNAL METHODS
 
 These methods are only to be used internally.
 
-=head2 _features()
+=head2 _all_features()
 
 =cut
 
-sub _features {
+sub _all_features {
 	my $self = shift;
 
 	my $features;
