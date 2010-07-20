@@ -207,7 +207,7 @@ These methods are only to be used internally.
 sub _all_abilities {
 	my $self = shift;
 
-	my $actions;
+	my $actions = {};
 	foreach my $act ($self->actions) {
 		$actions->{$act->name} = 1;
 	}

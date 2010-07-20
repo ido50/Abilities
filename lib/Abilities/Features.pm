@@ -189,7 +189,7 @@ These methods are only to be used internally.
 sub _all_features {
 	my $self = shift;
 
-	my $features;
+	my $features = {};
 	foreach my $feature ($self->features) {
 		$features->{$feature->name} = 1;
 	}
