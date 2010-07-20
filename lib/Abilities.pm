@@ -11,10 +11,17 @@ Abilities - Simple, hierarchical user authorization for web applications, with o
 
 =head1 SYNOPSIS
 
-	use Abilities;
+	package User;
+	
+	use Moose;
+	with 'Abilities';
+	
+	# ... define required methods ...
+	
+	# somewhere else in your code:
 
 	# get a user object that consumed the Abilities role
-	my $user = MyApp->get_user('username');
+	my $user = MyApp->get_user('username'); # $user is a User object
 		
 	# check if the user is able to do something
 	if ($user->can_perform('something')) {
@@ -267,6 +274,22 @@ sub _all_abilities {
 
 	return $actions;
 }
+
+=head1 TODO
+
+=over
+
+=item * Create tests
+
+Create tests for these roles. Right now the only way this is actually
+tested is through the L<Entities> distribution tests.
+
+=item * Catalyst::Plugin::Authorization::Abilities
+
+Find a way to make L<Catalyst::Plugin::Authorization::Abilities> use
+this role.
+
+=back
 
 =head1 AUTHOR
 

@@ -11,16 +11,23 @@ Abilities::Features - Extends Abilities with plan management for subscription-ba
 
 =head1 SYNOPSIS
 
-	use Abilities::Features;
+	package Customer;
+	
+	use Moose;
+	with 'Abilities::Features';
+	
+	# ... define required methods ...
+	
+	# somewhere else in your code:
 
-	# get a user object that consumed the Abilities role
-	my $user = MyApp->get_user('username');
+	# get a customer object that consumed the Abilities::Features role
+	my $customer = MyApp->get_customer('some_company');
 		
-	# check if the user is able to do something
-	if ($user->can_perform('something')) {
-		do_something();
+	# check if the customer has a certain feature
+	if ($customer->has_feature('ssl_encryption')) {
+		&initiate_https_connection();
 	} else {
-		die "Hey you can't do that, you can only do ", join(', ', $user->abilities);
+		&initiate_http_connection();
 	}
 
 =head1 DESCRIPTION
