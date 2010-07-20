@@ -212,7 +212,7 @@ sub _all_abilities {
 		$actions->{$act->name} = 1;
 	}
 	foreach my $role ($self->roles) {
-		my $role_acts = $role->_abilities;
+		my $role_acts = $role->_all_abilities;
 		map { $actions->{$_} = $role_acts->{$_} } keys %$role_acts;
 	}
 
