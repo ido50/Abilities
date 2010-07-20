@@ -1,6 +1,8 @@
 Revision history for Abilities
 
 {{$NEXT}}
+
+0.1       2010-07-20 23:31:59 Asia/Jerusalem
 	- Initial release
 	- Base code extracted from my Catalyst::Plugin::Authorization::Abilities module
 	  and turned into a Moose role
