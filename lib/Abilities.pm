@@ -122,7 +122,7 @@ will be able to perform any action, even if it wasn't granted to them.
 
 requires 'is_super';
 
-=head1 METHODS
+=head1 PROVIDED METHODS
 
 Classes that consume this role will have the following methods available
 for them:
@@ -204,9 +204,7 @@ sub belongs_to {
 }
 
 sub takes_from {
-	my $self = shift;
-
-	return $self->belongs_to(@_);
+	shift->belongs_to(@_);
 }
 
 =head2 inherits_from_role( $role_name | @role_names )
