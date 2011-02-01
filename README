@@ -3,10 +3,17 @@ NAME
     applications, with optional support for plan-based paid services.
 
 SYNOPSIS
-            use Abilities;
+            package User;
+        
+            use Moose;
+            with 'Abilities';
+        
+            # ... define required methods ...
+        
+            # somewhere else in your code:
 
             # get a user object that consumed the Abilities role
-            my $user = MyApp->get_user('username');
+            my $user = MyApp->get_user('username'); # $user is a User object
                 
             # check if the user is able to do something
             if ($user->can_perform('something')) {
@@ -93,7 +100,7 @@ REQUIRED METHODS
     If a user/role object has a true value for this attribute, then they
     will be able to perform any action, even if it wasn't granted to them.
 
-METHODS
+PROVIDED METHODS
     Classes that consume this role will have the following methods available
     for them:
 
@@ -142,6 +149,17 @@ INTERNAL METHODS
     These methods are only to be used internally.
 
   _all_abilities()
+TODO
+    *   Create tests
+
+        Create tests for these roles. Right now the only way this is
+        actually tested is through the Entities distribution tests.
+
+    *   Catalyst::Plugin::Authorization::Abilities
+
+        Find a way to make Catalyst::Plugin::Authorization::Abilities use
+        this role.
+
 AUTHOR
     Ido Perlmuter, "<ido at ido50 dot net>"
 
