@@ -1,6 +1,8 @@
 Revision history for Abilities
 
 {{$NEXT}}
+
+0.2       2011-02-01 19:16:06 Asia/Jerusalem
 	- Added Abilites::Scoped - a special version of Abilites.pm that
 	  supports scoping
 
