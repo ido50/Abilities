@@ -51,7 +51,7 @@ platform. Users should be able to create and edit posts only in their
 own blogs, otherwise chaos will erupt. Checking that a user has the ability
 to 'edit_post' isn't sufficient, because their ability to do so should be
 limited within their own scope, i.e. their own blogs. So, if there's a
-blog called 'my_blog' hosted on your platform, that in order to be able
+blog called 'my_blog' hosted on your platform, then in order to be able
 to edit a post in that blog, a user must have the 'edit_post' ability
 in the 'my_blog' scope.
 
