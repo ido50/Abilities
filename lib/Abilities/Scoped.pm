@@ -177,8 +177,8 @@ returned only if the user/role can perform ALL of these actions.
 sub can_perform {
 	my ($self, $scope) = (shift, shift);
 
-	# a super-user/super-role can do whatever they want
-	return 1 if $self->is_super;
+	# a super-user/super-role can do whatever they want (within the scope)
+	return 1 if $self->is_super($scope);
 
 	ACTION: foreach (@_) {
 		# Check specific user abilities
