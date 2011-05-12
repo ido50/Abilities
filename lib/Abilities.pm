@@ -1,13 +1,19 @@
 package Abilities;
 
-use Moose::Role;
+use Any::Moose 'Role';
 use namespace::autoclean;
 
-# ABSTRACT: Simple, hierarchical user authorization for web applications, with optional support for plan-based paid services.
+use Carp;
+use Hash::Merge qw/merge/;
+
+our $VERSION = "0.3_01";
+$VERSION = eval $VERSION;
+
+# ABSTRACT: Simple, hierarchical user authorization for web applications, with optional support for plan-based (paid) services.
 
 =head1 NAME
 
-Abilities - Simple, hierarchical user authorization for web applications, with optional support for plan-based paid services.
+Abilities - Simple, hierarchical user authorization for web applications, with optional support for plan-based (paid) services.
 
 =head1 SYNOPSIS
 
@@ -78,7 +84,7 @@ just as an example of an ability-based authorization system. L<Entities::User>
 and L<Entities::Role> are the user and role classes that consume the Abilities
 role in the Entities distribution.
 
-=head2 PAID, SUBSCRIPTION-BASED WEB SERVICES
+=head2 (PAID) SUBSCRIPTION-BASED WEB SERVICES
 
 Apart from the scenario described above, this module also provides optional
 support for subscription-based web services, such as those where customers
@@ -122,172 +128,158 @@ will be able to perform any action, even if it wasn't granted to them.
 
 requires 'is_super';
 
+has 'abilities' => (is => 'ro', isa => 'HashRef', lazy_build => 1);
+
 =head1 PROVIDED METHODS
 
 Classes that consume this role will have the following methods available
 for them:
 
-=head2 can_perform( $action_name | @action_names )
-
-Receives the name of an action (or names of actions), and returns a true
-value if the user/role can perform the provided action(s). If more than
-one actions are passed, a true value will be returned only if the user/role
-can perform ALL of these actions.
+=head2 can_perform( $action, [ $constraint ] )
 
 =cut
 
 sub can_perform {
-	my $self = shift;
+	my ($self, $action, $constraint) = @_;
 
 	# a super-user/super-role can do whatever they want
 	return 1 if $self->is_super;
 
-	ACTION: foreach (@_) {
-		# Check specific user abilities
-		foreach my $act ($self->actions) {
-			next ACTION if $act->name eq $_; # great, we can do that
-		}
-		# Check user abilities via roles
-		foreach my $role ($self->roles) {
-			next ACTION if $role->can_perform($_); # great, we can do that
-		}
-		
-		# if we've reached this spot, the user/role cannot perform
-		# this action, so return a false value
-		return;
-	}
+	# return false if user/role doesn't have that ability
+	return unless $self->abilities->{$action};
 
-	# if we've reached this spot, the user/role can perform all of
-	# the requested actions, so return true
-	return 1;
+	# user/role has ability, but is there a constraint?
+	if ($constraint) {
+		# return true if user/role's ability is not constrained
+		return 1 if !ref $self->abilities->{$action};
+		
+		# it is constrained (or at least it should be, let's make
+		# sure we have an array-ref of constraints)
+		if (ref $self->abilities->{$action} eq 'ARRAY') {
+			foreach (@{$self->abilities->{$action}}) {
+				return 1 if $_ eq $constraint;
+			}
+			return; # constraint not met
+		} else {
+			carp "Expected an array-ref of constraints for action $action, received ".ref($self->abilities->{$action}).", returning false.";
+			return;
+		}
+	} else {
+		# no constraint, make sure user/role's ability is indeed
+		# not constrained
+		return if ref $self->abilities->{$action}; # implied: ref == 'ARRAY', thus constrained
+		return 1; # not constrained
+	}
 }
 
-=head2 belongs_to( $role_name | @role_names )
+=head2 assigned_role( $role_name )
 
-=head2 takes_from( $role_name | @role_names )
+This method receives a role name and returns a true value if the user/role
+is a direct member of the provided role. Only direct membership is checked,
+so the user/role must be specifically assigned to the provided role, and
+not to a role that inherits from that role (see L</"inherits_from_role( $role )">
+instead).
 
-The above two methods are actually the same. The names are meant to differentiate
-between user objects (first case) and role objects (second case).
+=head2 takes_from( $role_name )
 
-These methods receive a role name (or names). In case of a user object,
-the method will return a true value if the user is a direct member of the
-provided role. In case multiple role names were provided, a true value will
-be returned only if the user is a member of ALL of these roles. Only direct
-association is checked, so the user must be specifically assigned to the
-provided role, and not to a role that inherits from that role (see C<inherits_from_role()>
-instead.
+=head2 belongs_to( $role_name )
 
-In case of a role object, this method will return a true value if the role
-directly consumes the abilities of the provided role. In case multiple role
-names were provided, a true value will be returned only if the role directly
-consumes ALL of these roles. Like in case of a user, only direct association
-is checked, so inheritance doesn't count.
+The above two methods are the same as C<assigned_role()>. Since version
+0.3 they are deprecated, and using them will issue a deprecation warning.
+They will be removed in future versions.
 
 =cut
 
-sub belongs_to {
-	my $self = shift;
+sub assigned_role {
+	my ($self, $role) = @_;
 
-	ROLE: foreach (@_) {
-		foreach my $role ($self->roles) {
-			next ROLE if $role->name eq $_; # great, the user/role belongs to this role
-		}
-		
-		# if we've reached this spot, the user/role does not belong to
-		# the role, so return a false value
-		return;
+	return unless $role;
+
+	foreach ($self->roles) {
+		return 1 if $_->name eq $role;
 	}
 
-	# if we've reached this spot, the user belongs to the rule,
-	# so return true.
-	return 1;
+	return;
 }
 
 sub takes_from {
-	shift->belongs_to(@_);
+	carp __PACKAGE__.'::takes_from() is deprecated, please use assigned_role() instead.';
+	return shift->assigned_role(@_);
 }
 
-=head2 inherits_from_role( $role_name | @role_names )
+sub belongs_to {
+	carp __PACKAGE__.'::belongs_to() is deprecated, please use assigned_role() instead.';
+	return shift->assigned_role(@_);
+}
 
-Receives the name of a role (or names of roles), and returns a true value
-if the user/role inherits the abilities of the provided role. If more than
-one roles are passed, a true value will be returned only if the user/role
-inherits from ALL of these roles.
+=head2 does_role( $role_name )
 
-This method takes inheritance into account, so if a user was directly assigned
-to the 'admins' role, and the 'admins' role inherits from the 'devs' role,
-then inherits_from_role('devs') will return true for that user.
+Receives the name of a role, and returns a true value if the user/role
+inherits the abilities of the provided role. This method takes inheritance
+into account, so if a user was directly assigned to the 'admins' role,
+and the 'admins' role inherits from the 'devs' role, then C<does_role('devs')>
+will return true for that user (while C<assigned_role('devs')> returns false).
+
+=head2 inherits_from_role( $role_name )
+
+This method is exactly the same as C<does_role()>. Since version 0.3 it
+is deprecated and using it issues a deprecation warning. It will be removed
+in future versions.
 
 =cut
+
+sub does_role {
+	my ($self, $role) = @_;
+
+	return unless $role;
+
+	foreach ($self->roles) {
+		return 1 if $_->name eq $role || $_->does_role($role);
+	}
+
+	return;
+}
 
 sub inherits_from_role {
-	my $self = shift;
-
-	ROLE: foreach (@_) {
-		foreach my $role ($self->roles) {
-			next ROLE if $role->name eq $_; # great, we inherit this
-			next ROLE if $role->inherits_from_role($_); # great, we inherit this
-		}
-		
-		# if we'e reached this spot, we do not inherit this role
-		# so return false
-		return;
-	}
-	
-	# if we've reached this spot, we inherit all the supplied roles,
-	# so return a true value
-	return 1;
-}
-
-=head2 all_abilities()
-
-Returns a list of all actions that a user/role can perform, either due to
-direct association or due to inheritance.
-
-=cut
-
-sub all_abilities {
-	keys %{$_[0]->_all_abilities()};
+	carp __PACKAGE__.'::inherits_from_role() is deprecated, please use does_role() instead.';
+	return shift->does_role(@_);
 }
 
 =head1 INTERNAL METHODS
 
 These methods are only to be used internally.
 
-=head2 _all_abilities()
+=head2 _build_abilities()
 
 =cut
 
-sub _all_abilities {
+sub _build_abilities {
 	my $self = shift;
 
-	my $actions = {};
-	foreach my $act ($self->actions) {
-		$actions->{$act->name} = 1;
-	}
-	foreach my $role ($self->roles) {
-		my $role_acts = $role->_all_abilities;
-		map { $actions->{$_} = $role_acts->{$_} } keys %$role_acts;
+	my $abilities = {};
+
+	# load direct actions granted to this user/role
+	foreach ($self->actions) {
+		# is this action constrained/scoped?
+		unless (ref $_) {
+			$abilities->{$_} = 1;
+		} elsif (ref $_ eq 'ARRAY' && scalar @$_ == 2) {
+			$abilities->{$_->[0]} = [$_->[1]];
+		} else {
+			carp "Can't handle action of reference ".ref($_);
+		}
 	}
 
-	return $actions;
+	# load actions from roles this user/role consumes
+	my @hashes = map { $_->abilities } $self->roles;
+
+	# merge all abilities
+	while (scalar @hashes) {
+		$abilities = merge($abilities, shift @hashes);
+	}
+
+	return $abilities;
 }
-
-=head1 TODO
-
-=over
-
-=item * Create tests
-
-Create tests for these roles. Right now the only way this is actually
-tested is through the L<Entities> distribution tests.
-
-=item * Catalyst::Plugin::Authorization::Abilities
-
-Find a way to make L<Catalyst::Plugin::Authorization::Abilities> use
-this role.
-
-=back
 
 =head1 AUTHOR
 
@@ -296,14 +288,14 @@ Ido Perlmuter, C<< <ido at ido50 dot net> >>
 =head1 BUGS
 
 Please report any bugs or feature requests to C<bug-abilities at rt.cpan.org>, or through
-the web interface at L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=Abilities>.  I will be notified, and then you'll
+the web interface at L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=Abilities>. I will be notified, and then you'll
 automatically be notified of progress on your bug as I make changes.
 
 =head1 SUPPORT
 
 You can find documentation for this module with the perldoc command.
 
-    perldoc Abilities
+	perldoc Abilities
 
 You can also look for information at:
 
@@ -329,7 +321,7 @@ L<http://search.cpan.org/dist/Abilities/>
 
 =head1 LICENSE AND COPYRIGHT
 
-Copyright 2010 Ido Perlmuter.
+Copyright 2010-2011 Ido Perlmuter.
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of either: the GNU General Public License as published

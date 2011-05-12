@@ -1,7 +1,13 @@
 package Abilities::Features;
 
-use Moose::Role;
+use Any::Moose 'Role';
 use namespace::autoclean;
+
+use Carp;
+use Hash::Merge qw/merge/;
+
+our $VERSION = "0.3_01";
+$VERSION = eval $VERSION;
 
 # ABSTRACT: Extends Abilities with plan management for subscription-based web services.
 
@@ -89,128 +95,132 @@ feature objects, not just their names.
 
 requires 'features';
 
+has 'available_features' => (is => 'ro', isa => 'HashRef', lazy_build => 1);
+
 =head1 METHODS
 
 Classes that consume this role will have the following methods provided
 to them:
 
-=head2 has_feature( $feature_name | @feature_names )
-
-Returns a true value if the customer/plan has the provided feature or features
-associated with it (either via plans or explicitly). If more than one
-features are passed, a true value will be returned only if the
-customer/plan has ALL of these features.
+=head2 has_feature( $feature_name, [ $constraint ] )
 
 =cut
 
 sub has_feature {
-	my $self = shift;
+	my ($self, $feature, $constraint) = @_;
 
-	FEATURE: foreach (@_) {
-		# Check specific features
-		foreach my $feature ($self->features) {
-			next FEATURE if $feature->name eq $_; # great, we can do that
-		}
-		# Check features via plans
-		foreach my $plan ($self->plans) {
-			next FEATURE if $plan->has_feature($_); # great, we can do that
-		}
+	# return false if customer/plan does not have that feature
+	return unless $self->available_features->{$feature};
+
+	# customer/plan has feature, but is there a constraint?
+	if ($constraint) {
+		# return true if customer/plan's feature is not constrained
+		return 1 if !ref $self->available_features->{$feature};
 		
-		# if we've reached this spot, the user/customer/plan 
-		# does not have this feature, so return a false value.
-		return;
+		# it is constrained (or at least it should be, let's make
+		# sure we have an array-ref of constraints)
+		if (ref $self->available_features->{$feature} eq 'ARRAY') {
+			foreach (@{$self->available_features->{$feature}}) {
+				return 1 if $_ eq $constraint;
+			}
+			return; # constraint not met
+		} else {
+			carp "Expected an array-ref of constraints for feature $feature, received ".ref($self->available_features->{$feature}).", returning false.";
+			return;
+		}
+	} else {
+		# no constraint, make sure customer/plan's feature is indeed
+		# not constrained
+		return if ref $self->available_features->{$feature}; # implied: ref == 'ARRAY', thus constrained
+		return 1; # not constrained
 	}
-
-	# if we've reached this spot, the user/customer/plan has all the
-	# requested features, so return a true value
-	return 1;
 }
 
-=head2 in_plan( $plan_name | @plan_names )
+=head2 in_plan( $plan_name )
 
-Receives the name of plan (or names of plans), and returns a true value
-if the user/customer is a direct member of the provided plan(s). Only
-direct association is checked, so the user/customer must be specifically
-assigned to that plan, and not to a plan that inherits from that plan
-(see C<inherits_from_plan()>). If more than one plans are passed, a true
-value will be returned only if the user is a member of ALL of these plans.
+Receives the name of plan and returns a true value if the user/customer
+is a direct member of the provided plan(s). Only direct association is
+checked, so the user/customer must be specifically assigned to that plan,
+and not to a plan that inherits from that plan (see L</"inherits_plan( $plan_name )">
+instead).
 
 =cut
 
 sub in_plan {
-	my $self = shift;
+	my ($self, $plan) = @_;
 
-	PLAN: foreach (@_) {
-		foreach my $plan ($self->plans) {
-			next PLAN if $plan->name eq $_; # great, the customer belongs to this plan
-		}
-		
-		# if we've reached this spot, the customer does not belong to
-		# the plan, so return a false value
-		return;
+	return unless $plan;
+
+	foreach ($self->plans) {
+		return 1 if $_->name eq $plan;
 	}
 
-	# if we've reached this spot, the customer belongs to the plan,
-	# so return true.
-	return 1;
+	return;
 }
 
-=head2 inherits_from_plan( $role_name | @role_names )
+=head2 inherits_plan( $role_name )
 
 Returns a true value if the customer/plan inherits the features of
-the provided plan(s). If more than one plans are passed, a true value will
-be returned only if the customer/plan inherits from ALL of these plans.
+the provided plan(s). If a customer belongs to the 'premium' plan, and
+the 'premium' plan inherits from the 'basic' plan, then C<inherits_plan('basic')>
+will be true for that customer, while C<in_plan('basic')> will be false.
+
+=head2 inherits_from_plan( $role_name )
+
+This method is exactly the same as C<inherits_plan()>. Since version 0.3
+it is deprecated, and using it issues a deprecation warning. It will be
+removed in future versions.
 
 =cut
 
-sub inherits_from_plan {
-	my $self = shift;
+sub inherits_plan {
+	my ($self, $plan) = @_;
 
-	ROLE: foreach (@_) {
-		foreach my $plan ($self->plans) {
-			next ROLE if $plan->name eq $_; # great, we inherit this
-			next ROLE if $plan->inherits_from_plan($_); # great, we inherit this
-		}
-		
-		# if we'e reached this spot, we do not inherit this plan
-		# so return false
-		return;
+	return unless $plan;
+
+	foreach ($self->plans) {
+		return 1 if $_->name eq $plan || $_->inherits_plan($plan);
 	}
-	
-	# if we've reached this spot, we inherit all the supplied plans,
-	# so return a true value
-	return 1;
+
+	return;
 }
 
-=head2 all_features()
-
-Returns a list of all feature names that a customer/plan has, either due to
-direct association or due to inheritance.
-
-=cut
-
-sub all_features {
-	keys %{$_[0]->_all_features()};
+sub inherits_from_plan {
+	carp __PACKAGE__.'::inherits_from_plan() is deprecated, please use inherits_plan() instead.';
+	return shift->inherits_plan(@_);
 }
 
 =head1 INTERNAL METHODS
 
 These methods are only to be used internally.
 
-=head2 _all_features()
+=head2 _build_available_features()
 
 =cut
 
-sub _all_features {
+sub _build_available_features {
 	my $self = shift;
 
 	my $features = {};
-	foreach my $feature ($self->features) {
-		$features->{$feature->name} = 1;
+
+	# load direct features granted to this customer/plan
+	foreach ($self->features) {
+		# is this features constrained?
+		unless (ref $_) {
+			$features->{$_} = 1;
+		} elsif (ref $_ eq 'ARRAY' && scalar @$_ == 2) {
+			$features->{$_->[0]} = [$_->[1]];
+		} else {
+			carp "Can't handle feature of reference ".ref($_);
+		}
 	}
-	foreach my $plan ($self->plans) {
-		my $plan_features = $plan->_features;
-		map { $features->{$_} = $plan_features->{$_} } keys %$plan_features;
+
+	# load features from plans this customer/plan has
+	my @hashes = map { $_->available_features } $self->plans;
+
+	# merge all features
+	while (scalar @hashes) {
+		$features = merge($features, shift @hashes);
 	}
 
 	return $features;
@@ -223,14 +233,14 @@ Ido Perlmuter, C<< <ido at ido50 dot net> >>
 =head1 BUGS
 
 Please report any bugs or feature requests to C<bug-abilities at rt.cpan.org>, or through
-the web interface at L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=Abilities>.  I will be notified, and then you'll
+the web interface at L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=Abilities>. I will be notified, and then you'll
 automatically be notified of progress on your bug as I make changes.
 
 =head1 SUPPORT
 
 You can find documentation for this module with the perldoc command.
 
-    perldoc Abilities::Features
+	perldoc Abilities::Features
 
 You can also look for information at:
 
@@ -256,7 +266,7 @@ L<http://search.cpan.org/dist/Abilities/>
 
 =head1 LICENSE AND COPYRIGHT
 
-Copyright 2010 Ido Perlmuter.
+Copyright 2010-2011 Ido Perlmuter.
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of either: the GNU General Public License as published

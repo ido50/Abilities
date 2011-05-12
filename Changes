@@ -1,6 +1,12 @@
 Revision history for Abilities
 
 {{$NEXT}}
+	- Now using Any::Moose 'Role' instead of Moose::Role
+	- Actions can now have options. When an action doesn't have any options,
+	  then it's really a yes/no option. When an action does have options,
+	  then it's no longer a yes/no option. This allows more finer grained
+	  control over actions, and caused a (backwards-compatible) change
+	  to the can_perform() method. More details in the docs.
 
 0.2       2011-02-01 19:16:06 Asia/Jerusalem
 	- Added Abilites::Scoped - a special version of Abilites.pm that
