@@ -149,13 +149,16 @@ sub can_perform {
 	return unless $self->abilities->{$action};
 
 	# user/role has ability, but is there a constraint?
-	if ($constraint) {
+	if ($constraint && $constraint ne '_all_') {
 		# return true if user/role's ability is not constrained
 		return 1 if !ref $self->abilities->{$action};
 		
 		# it is constrained (or at least it should be, let's make
 		# sure we have an array-ref of constraints)
 		if (ref $self->abilities->{$action} eq 'ARRAY') {
+			return 1 if $constraint eq '_any_';	# caller wants to know if
+								# user/role has any constraint,
+								# which we now know is true
 			foreach (@{$self->abilities->{$action}}) {
 				return 1 if $_ eq $constraint;
 			}

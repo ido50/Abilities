@@ -3,7 +3,7 @@
 use lib 't/lib';
 use TestRole;
 use TestUser;
-use Test::More tests => 26;
+use Test::More tests => 29;
 
 my $ra = TestRole->new(name => 'RA', actions => ['create_comment']);
 my $rc = TestRole->new(name => 'RC', actions => ['do_something']);
@@ -43,5 +43,10 @@ ok(!$uc->can_perform('fake_action'), 'UC cannot perform fake action');
 ok($uc->can_perform('delete_comment'), 'UC can delete comments');
 ok($uc->can_perform('delete_comment', 'his'), 'UC can delete its own comments');
 ok($uc->can_perform('do_something'), 'UC can do something');
+
+# let's check the _all_ and _any_ options
+ok($ua->can_perform('edit_post', '_any_'), '_any_ works when UA has constraint on edit_post');
+ok($ua->can_perform('create_post', '_all_'), '_all_ works when UA has no constraint on create_post');
+ok($ua->can_perform('create_post', '_any_'), '_any_ also works when UA has no constrain on create_post');
 
 done_testing();
