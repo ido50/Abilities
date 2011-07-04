@@ -11,7 +11,7 @@ has 'roles' => (is => 'ro', isa => 'ArrayRef', default => sub { [] } );
 
 has 'is_super' => (is => 'ro', isa => 'Bool', default => 0);
 
-with 'Abilities' => { -version => '0.3_01' };
+with 'Abilities' => { -version => '0.3' };
 
 around qr/^actions|roles$/ => sub {
 	my ($orig, $self) = @_;

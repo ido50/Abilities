@@ -9,7 +9,7 @@ has 'features' => (is => 'ro', isa => 'ArrayRef', default => sub { [] });
 
 has 'plans' => (is => 'ro', isa => 'ArrayRef', default => sub { [] } );
 
-with 'Abilities::Features' => { -version => '0.3_01' };
+with 'Abilities::Features' => { -version => '0.3' };
 
 around qr/^features|plans$/ => sub {
 	my ($orig, $self) = @_;

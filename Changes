@@ -1,12 +1,31 @@
 Revision history for Abilities
 
 {{$NEXT}}
+	[ BACKWARDS COMPATIBILITY BROKEN ]
+	- Actions and features can now have constraints. When an action/features
+	  doesn't have any, then it's really a yes/no (have/don't) option.
+	  When an action/feature does have constraints, then it's no longer
+	  a yes/no option. This allows more finer grained control over
+	  abilities.
+	- The can_perform() method now can only take one action, not a list.
+	  It now also takes an optional constraint.
+	- The required actions() method in Abilities.pm and features() method
+	  in Abilities/Features.pm now expects a different return structure,
+	  read the docs for more info
+	- Abilities::Scoped is removed since Abilities now provides the
+	  same functionality with the new constraints thing
+
+	[ VARIOUS CHANGES ]
 	- Now using Any::Moose 'Role' instead of Moose::Role
-	- Actions can now have options. When an action doesn't have any options,
-	  then it's really a yes/no option. When an action does have options,
-	  then it's no longer a yes/no option. This allows more finer grained
-	  control over actions, and caused a (backwards-compatible) change
-	  to the can_perform() method. More details in the docs.
+	- Changed the names of Abilities::takes_from() and Abilities::belongs_to()
+	  (they were the same method) to Abilities::assigned_role() and
+	  added a deprecation warning for the previous two
+	- Changed the name of Abilities::inherits_from_role() to Abilities::does_role()
+	  and added a deprecation warning to the previous one
+	- Changed the name of Abilities::Features::inherits_from_plan()
+	  to Abilities::Features::inherits_plan() and added a deprecation
+	  warning for the previous one
+	- Created a test suite
 
 0.2       2011-02-01 19:16:06 Asia/Jerusalem
 	- Added Abilites::Scoped - a special version of Abilites.pm that

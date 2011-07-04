@@ -6,7 +6,7 @@ use namespace::autoclean;
 use Carp;
 use Hash::Merge qw/merge/;
 
-our $VERSION = "0.3_01";
+our $VERSION = "0.3";
 $VERSION = eval $VERSION;
 
 # ABSTRACT: Simple, hierarchical user authorization for web applications, with optional support for plan-based (paid) services.
@@ -33,19 +33,19 @@ Abilities - Simple, hierarchical user authorization for web applications, with o
 	if ($user->can_perform('something')) {
 		do_something();
 	} else {
-		die "Hey you can't do that, you can only do ", join(', ', $user->abilities);
+		die "Hey you can't do that, you can only do " . join(', ', keys %{$user->abilities});
 	}
 
 =head1 DESCRIPTION
 
 Abilities is a simple yet powerful mechanism for authorizing users of web
-applications to perform certain actions in the app's code. This is an
+applications (or any applications) to perform certain actions in the app's code. This is an
 extension of the familiar role-based access control that is common in
 various systems and frameworks like L<Catalyst> (See L<Catalyst::Plugin::Authorization::Roles>
 for the role-based implementation and L<Catalyst::Plugin::Authorization::Abilities>
 for the ability-based implementation that inspired this module).
 
-As opposed to the role-based access control - where users are allowed access
+As opposed to role-based access control - where users are allowed access
 to a certain feature (here called 'action') only through their association
 to a certain role that is hard-coded in the program's code - in ability-based
 acccess control, a list of actions is assigned to every user, and they are
@@ -62,7 +62,7 @@ if user 'user01' is a member of role 'admin', and this user wishes to perform
 some action, for example 'delete_foo', then they will only be able to do
 so if the 'delete_foo' ability was given to either the user itself or the
 'admin' role itself. Furthermore, roles can be assigned other roles; for
-example, roles 'mods' and 'editors' can be assigned _inside_ role 'mega_mods'.
+example, roles 'mods' and 'editors' can inherit role 'mega_mods'.
 Users of the 'mega_mods' role will assume all actions owned by the 'mods'
 and 'editors' roles.
 
@@ -73,14 +73,14 @@ for example, the admin can create an 'editor' role, giving users of this
 role the ability to edit and delete posts, but not any other administrative
 action. So in essence, this type of access control relieves the developer
 from deciding who gets to do what and passes these decisions to the
-end-user, which might be necessary in certain situations.
+end-user, which might actually be necessary in certain situations.
 
-The Abilities module is implemented as a L<Moose role|Moose::Role>. In order
-to be able to use this mechanism, web applications must implement a user
-management system that will consume this role. More specifically, a user
-class and a role class must be implemented, consuming this role. L<Entities>
-is a reference implementation that can be used by web applications, or
-just as an example of an ability-based authorization system. L<Entities::User>
+The Abilities module is implemented as a L<Moose role|Moose::Role> (but
+uses L<Any::Moose). In order to be able to use this mechanism, applications
+must implement a user management system that will consume this role.
+More specifically, a user class and a role class must be implemented, consuming this role. L<Entities>
+is a reference implementation that can be used by applications, or
+just taken as an example of an ability-based authorization system. L<Entities::User>
 and L<Entities::Role> are the user and role classes that consume the Abilities
 role in the Entities distribution.
 
@@ -90,7 +90,7 @@ Apart from the scenario described above, this module also provides optional
 support for subscription-based web services, such as those where customers
 subscribe to a certain paid (or free, doesn't matter) plan from a list
 of available plans (GitHub is an example of such a service). This functionality
-is also implemented as a role, in the L<Abilities::Features> module provided
+is also implemented as a Moose role, in the L<Abilities::Features> module provided
 with this distribution. Read its documentation for detailed information.
 
 =head1 REQUIRED METHODS

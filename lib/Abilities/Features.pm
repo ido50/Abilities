@@ -6,7 +6,7 @@ use namespace::autoclean;
 use Carp;
 use Hash::Merge qw/merge/;
 
-our $VERSION = "0.3_01";
+our $VERSION = "0.3";
 $VERSION = eval $VERSION;
 
 # ABSTRACT: Extends Abilities with plan management for subscription-based web services.
