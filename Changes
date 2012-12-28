@@ -1,6 +1,8 @@
 Revision history for Abilities
 
 {{$NEXT}}
+
+0.3       2012-12-28 17:15:01 Asia/Jerusalem
 	[ BACKWARDS COMPATIBILITY BROKEN ]
 	- Actions and features can now have constraints. When an action/features
 	  doesn't have any, then it's really a yes/no (have/don't) option.
