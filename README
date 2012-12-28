@@ -1,6 +1,6 @@
 NAME
     Abilities - Simple, hierarchical user authorization for web
-    applications, with optional support for plan-based paid services.
+    applications, with optional support for plan-based (paid) services.
 
 SYNOPSIS
             package User;
@@ -19,22 +19,22 @@ SYNOPSIS
             if ($user->can_perform('something')) {
                     do_something();
             } else {
-                    die "Hey you can't do that, you can only do ", join(', ', $user->abilities);
+                    die "Hey you can't do that, you can only do " . join(', ', keys %{$user->abilities});
             }
 
 DESCRIPTION
     Abilities is a simple yet powerful mechanism for authorizing users of
-    web applications to perform certain actions in the app's code. This is
-    an extension of the familiar role-based access control that is common in
-    various systems and frameworks like Catalyst (See
-    Catalyst::Plugin::Authorization::Roles for the role-based implementation
-    and Catalyst::Plugin::Authorization::Abilities for the ability-based
-    implementation that inspired this module).
+    web applications (or any applications) to perform certain actions in the
+    application. This is an extension of the familiar role-based access
+    control that is common in various systems and frameworks like Catalyst
+    (See Catalyst::Plugin::Authorization::Roles for the role-based
+    implementation and Catalyst::Plugin::Authorization::Abilities for the
+    ability-based implementation that inspired this module).
 
-    As opposed to the role-based access control - where users are allowed
-    access to a certain feature (here called 'action') only through their
-    association to a certain role that is hard-coded in the program's code -
-    in ability-based acccess control, a list of actions is assigned to every
+    As opposed to role-based access control - where users are allowed access
+    to a certain feature (here called 'action') only through their
+    association to a certain role that is hard-coded into the program - in
+    ability-based acccess control, a list of actions is assigned to every
     user, and they are only allowed to perform these actions. Actions are
     not assigned by the developer during development, but rather by the
     end-user during deployment. This allows for much more flexibility, and
@@ -49,9 +49,9 @@ DESCRIPTION
     this user wishes to perform some action, for example 'delete_foo', then
     they will only be able to do so if the 'delete_foo' ability was given to
     either the user itself or the 'admin' role itself. Furthermore, roles
-    can be assigned other roles; for example, roles 'mods' and 'editors' can
-    be assigned _inside_ role 'mega_mods'. Users of the 'mega_mods' role
-    will assume all actions owned by the 'mods' and 'editors' roles.
+    can recursively inherit other roles; for example, the role 'mega_mods'
+    can inherit the roles 'mods' and 'editors'. Users of the 'mega_mods'
+    role will assume all actions owned by the 'mods' and 'editors' roles.
 
     A commonly known use-case for this type of access control is message
     boards, where the administrator might wish to create roles with certain
@@ -59,25 +59,50 @@ DESCRIPTION
     groups'); for example, the admin can create an 'editor' role, giving
     users of this role the ability to edit and delete posts, but not any
     other administrative action. So in essence, this type of access control
-    relieves the developer from deciding who gets to do what and passes
-    these decisions to the end-user, which might be necessary in certain
+    relieves the developer of deciding who gets to do what and passes these
+    decisions to the end-user, which might actually be necessary in certain
     situations.
 
-    The Abilities module is implemented as a Moose role. In order to be able
-    to use this mechanism, web applications must implement a user management
-    system that will consume this role. More specifically, a user class and
-    a role class must be implemented, consuming this role. Entities is a
-    reference implementation that can be used by web applications, or just
-    as an example of an ability-based authorization system. Entities::User
-    and Entities::Role are the user and role classes that consume the
-    Abilities role in the Entities distribution.
+    The "Abilities" module is implemented as a Moose role (but uses
+    Any::Moose). In order to be able to use this mechanism, applications
+    must implement a user management system that will consume this role.
+    More specifically, a user class and a role class must be implemented,
+    consuming this role. Entities is a reference implementation that can be
+    used by applications, or just taken as an example of an ability-based
+    authorization system. Entities::User and Entities::Role are the user and
+    role classes that consume the Abilities role in the Entities
+    distribution.
 
-  PAID, SUBSCRIPTION-BASED WEB SERVICES
+  CONSTRAINTS
+    Generally, an ability is a yes/no option. Either the user can or can't
+    perform a specific action. At times, this might not be flexible enough,
+    and the user's ability to perform a certain action should be
+    constrained. For example, a user might be granted the ability to edit
+    posts in a blog, but this ability should be constrained to the user's
+    posts only. The user is not to be allowed to edit posts created by other
+    users. "Abilities" supports constraints by allowing to set a name-based
+    constraint when granting a user/role a certain ability. Then, checking
+    the user's ability to perform an action can include the constraint, for
+    example:
+
+            if ($post->{user_id} eq $user->id && $user->can_perform('edit_posts', 'only_his')) {
+                    # allow
+            } else {
+                    # do not allow
+            }
+
+    Here, the "Abilities" module allows you to check if the user's ability
+    is constrained, but the responsibility for making sure the constraint is
+    actually relevant to the case is left to you. In the above example, it
+    is the application that checks if the post the user is trying to edit
+    was created by them, not the "Abilities" module.
+
+  (PAID) SUBSCRIPTION-BASED WEB SERVICES
     Apart from the scenario described above, this module also provides
     optional support for subscription-based web services, such as those
     where customers subscribe to a certain paid (or free, doesn't matter)
     plan from a list of available plans (GitHub is an example of such a
-    service). This functionality is also implemented as a role, in the
+    service). This functionality is also implemented as a Moose role, in the
     Abilities::Features module provided with this distribution. Read its
     documentation for detailed information.
 
@@ -86,79 +111,78 @@ REQUIRED METHODS
     methods:
 
   roles()
-    Returns a list of all roles that a user object belongs to, or a role
-    object inherits from. The list must contain references to the role
-    objects, not just their names.
+    Returns a list of all role names that a user object belongs to, or a
+    role object inherits from.
+
+    Example return structure:
+
+            ( 'moderator', 'supporter' ]
+
+    NOTE: In previous versions, this method was required to return an array
+    of role objects, not a list of role names. This has been changed in
+    version 0.3.
 
   actions()
-    Returns a list of all actions that a user object has been explicitely
-    granted, or that a role object has been granted. The list must contain
-    references to the action objects, not just their names.
+    Returns a list of all action names that a user object has been
+    explicitely granted, or that a role object has been granted. If a
+    certain action is constrained, then it should be added to the list as an
+    array reference with two items, the first being the name of the action,
+    the second being the name of the constraint.
+
+    Example return structure:
+
+            ( 'create_posts', ['edit_posts', 'only_his'], 'comment_on_posts' )
+
+    NOTE: In previous versions, this method was required to return an array
+    of action objects, not a list of action names. This has been changed in
+    version 0.3.
 
   is_super()
     This is a boolean attribute that both user and role objects should have.
     If a user/role object has a true value for this attribute, then they
     will be able to perform any action, even if it wasn't granted to them.
 
+PROVIDED ATTRIBUTES
+  abilities
+    Holds a hash reference of all the abilities a user/role object can
+    perform, after consolidating abilities inherited from roles (including
+    recursively) and directly granted. Keys in the hash-ref will be names of
+    actions, values will be 1 (for yes/no actions) or a single-item
+    array-ref with the name of a constraint (for constrained actions).
+
 PROVIDED METHODS
     Classes that consume this role will have the following methods available
     for them:
 
-  can_perform( $action_name | @action_names )
-    Receives the name of an action (or names of actions), and returns a true
-    value if the user/role can perform the provided action(s). If more than
-    one actions are passed, a true value will be returned only if the
-    user/role can perform ALL of these actions.
+  can_perform( $action, [ $constraint ] )
+    Receives the name of an action, and possibly a constraint, and returns a
+    true value if the user/role can perform the provided action.
 
-  belongs_to( $role_name | @role_names )
-  takes_from( $role_name | @role_names )
-    The above two methods are actually the same. The names are meant to
-    differentiate between user objects (first case) and role objects (second
-    case).
+  assigned_role( $role_name )
+    This method receives a role name and returns a true value if the
+    user/role is a direct member of the provided role. Only direct
+    membership is checked, so the user/role must be specifically assigned to
+    the provided role, and not to a role that inherits from that role (see
+    "inherits_from_role( $role )" instead).
 
-    These methods receive a role name (or names). In case of a user object,
-    the method will return a true value if the user is a direct member of
-    the provided role. In case multiple role names were provided, a true
-    value will be returned only if the user is a member of ALL of these
-    roles. Only direct association is checked, so the user must be
-    specifically assigned to the provided role, and not to a role that
-    inherits from that role (see "inherits_from_role()" instead.
+  takes_from( $role_name )
+  belongs_to( $role_name )
+    The above two methods are the same as "assigned_role()". Since version
+    0.3 they are deprecated, and using them will issue a deprecation
+    warning. They will be removed in future versions.
 
-    In case of a role object, this method will return a true value if the
-    role directly consumes the abilities of the provided role. In case
-    multiple role names were provided, a true value will be returned only if
-    the role directly consumes ALL of these roles. Like in case of a user,
-    only direct association is checked, so inheritance doesn't count.
+  does_role( $role_name )
+    Receives the name of a role, and returns a true value if the user/role
+    inherits the abilities of the provided role. This method takes
+    inheritance into account, so if a user was directly assigned to the
+    'admins' role, and the 'admins' role inherits from the 'devs' role, then
+    "does_role('devs')" will return true for that user (while
+    "assigned_role('devs')" returns false).
 
-  inherits_from_role( $role_name | @role_names )
-    Receives the name of a role (or names of roles), and returns a true
-    value if the user/role inherits the abilities of the provided role. If
-    more than one roles are passed, a true value will be returned only if
-    the user/role inherits from ALL of these roles.
-
-    This method takes inheritance into account, so if a user was directly
-    assigned to the 'admins' role, and the 'admins' role inherits from the
-    'devs' role, then inherits_from_role('devs') will return true for that
-    user.
-
-  all_abilities()
-    Returns a list of all actions that a user/role can perform, either due
-    to direct association or due to inheritance.
-
-INTERNAL METHODS
-    These methods are only to be used internally.
-
-  _all_abilities()
-TODO
-    *   Create tests
-
-        Create tests for these roles. Right now the only way this is
-        actually tested is through the Entities distribution tests.
-
-    *   Catalyst::Plugin::Authorization::Abilities
-
-        Find a way to make Catalyst::Plugin::Authorization::Abilities use
-        this role.
+  inherits_from_role( $role_name )
+    This method is exactly the same as "does_role()". Since version 0.3 it
+    is deprecated and using it issues a deprecation warning. It will be
+    removed in future versions.
 
 AUTHOR
     Ido Perlmuter, "<ido at ido50 dot net>"
@@ -173,7 +197,7 @@ BUGS
 SUPPORT
     You can find documentation for this module with the perldoc command.
 
-        perldoc Abilities
+            perldoc Abilities
 
     You can also look for information at:
 
@@ -194,7 +218,7 @@ SUPPORT
         <http://search.cpan.org/dist/Abilities/>
 
 LICENSE AND COPYRIGHT
-    Copyright 2010 Ido Perlmuter.
+    Copyright 2010-2012 Ido Perlmuter.
 
     This program is free software; you can redistribute it and/or modify it
     under the terms of either: the GNU General Public License as published

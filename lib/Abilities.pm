@@ -39,7 +39,7 @@ Abilities - Simple, hierarchical user authorization for web applications, with o
 =head1 DESCRIPTION
 
 Abilities is a simple yet powerful mechanism for authorizing users of web
-applications (or any applications) to perform certain actions in the app's code. This is an
+applications (or any applications) to perform certain actions in the application. This is an
 extension of the familiar role-based access control that is common in
 various systems and frameworks like L<Catalyst> (See L<Catalyst::Plugin::Authorization::Roles>
 for the role-based implementation and L<Catalyst::Plugin::Authorization::Abilities>
@@ -47,7 +47,7 @@ for the ability-based implementation that inspired this module).
 
 As opposed to role-based access control - where users are allowed access
 to a certain feature (here called 'action') only through their association
-to a certain role that is hard-coded in the program's code - in ability-based
+to a certain role that is hard-coded into the program - in ability-based
 acccess control, a list of actions is assigned to every user, and they are
 only allowed to perform these actions. Actions are not assigned by the
 developer during development, but rather by the end-user during deployment.
@@ -61,8 +61,8 @@ via roles the user can assume (as in role-based access control). For example,
 if user 'user01' is a member of role 'admin', and this user wishes to perform
 some action, for example 'delete_foo', then they will only be able to do
 so if the 'delete_foo' ability was given to either the user itself or the
-'admin' role itself. Furthermore, roles can be assigned other roles; for
-example, roles 'mods' and 'editors' can inherit role 'mega_mods'.
+'admin' role itself. Furthermore, roles can recursively inherit other roles;
+for example, the role 'mega_mods' can inherit the roles 'mods' and 'editors'.
 Users of the 'mega_mods' role will assume all actions owned by the 'mods'
 and 'editors' roles.
 
@@ -72,17 +72,41 @@ and associate users with the roles (more commonly called 'user groups');
 for example, the admin can create an 'editor' role, giving users of this
 role the ability to edit and delete posts, but not any other administrative
 action. So in essence, this type of access control relieves the developer
-from deciding who gets to do what and passes these decisions to the
+of deciding who gets to do what and passes these decisions to the
 end-user, which might actually be necessary in certain situations.
 
-The Abilities module is implemented as a L<Moose role|Moose::Role> (but
-uses L<Any::Moose). In order to be able to use this mechanism, applications
+The C<Abilities> module is implemented as a L<Moose role|Moose::Role> (but
+uses L<Any::Moose>). In order to be able to use this mechanism, applications
 must implement a user management system that will consume this role.
 More specifically, a user class and a role class must be implemented, consuming this role. L<Entities>
 is a reference implementation that can be used by applications, or
 just taken as an example of an ability-based authorization system. L<Entities::User>
 and L<Entities::Role> are the user and role classes that consume the Abilities
 role in the Entities distribution.
+
+=head2 CONSTRAINTS
+
+Generally, an ability is a yes/no option. Either the user can or can't perform
+a specific action. At times, this might not be flexible enough, and the user's
+ability to perform a certain action should be constrained. For example, a user
+might be granted the ability to edit posts in a blog, but this ability should
+be constrained to the user's posts only. The user is not to be allowed to edit
+posts created by other users. C<Abilities> supports constraints by allowing to
+set a name-based constraint when granting a user/role a certain ability. Then,
+checking the user's ability to perform an action can include the constraint,
+for example:
+
+	if ($post->{user_id} eq $user->id && $user->can_perform('edit_posts', 'only_his')) {
+		# allow
+	} else {
+		# do not allow
+	}
+
+Here, the C<Abilities> module allows you to check if the user's ability is constrained,
+but the responsibility for making sure the constraint is actually relevant
+to the case is left to you. In the above example, it is the application that
+checks if the post the user is trying to edit was created by them, not the C<Abilities>
+module.
 
 =head2 (PAID) SUBSCRIPTION-BASED WEB SERVICES
 
@@ -100,9 +124,16 @@ methods:
 
 =head2 roles()
 
-Returns a list of all roles that a user object belongs to, or a role object
-inherits from. The list must contain references to the role objects, not
-just their names.
+Returns a list of all role names that a user object belongs to, or a role object
+inherits from.
+
+Example return structure:
+
+	( 'moderator', 'supporter' ]
+
+NOTE: In previous versions, this method was required to return
+an array of role objects, not a list of role names. This has been changed
+in version 0.3.
 
 =cut
 
@@ -110,9 +141,18 @@ requires 'roles';
 
 =head2 actions()
 
-Returns a list of all actions that a user object has been explicitely granted,
-or that a role object has been granted. The list must contain references
-to the action objects, not just their names.
+Returns a list of all action names that a user object has been explicitely granted,
+or that a role object has been granted. If a certain action is constrained, then
+it should be added to the list as an array reference with two items, the first being
+the name of the action, the second being the name of the constraint.
+
+Example return structure:
+
+	( 'create_posts', ['edit_posts', 'only_his'], 'comment_on_posts' )
+
+NOTE: In previous versions, this method was required to return
+an array of action objects, not a list of action names. This has been changed
+in version 0.3.
 
 =cut
 
@@ -128,6 +168,18 @@ will be able to perform any action, even if it wasn't granted to them.
 
 requires 'is_super';
 
+=head1 PROVIDED ATTRIBUTES
+
+=head2 abilities
+
+Holds a hash reference of all the abilities a user/role object can
+perform, after consolidating abilities inherited from roles (including
+recursively) and directly granted. Keys in the hash-ref will be names
+of actions, values will be 1 (for yes/no actions) or a single-item array-ref
+with the name of a constraint (for constrained actions).
+
+=cut
+
 has 'abilities' => (is => 'ro', isa => 'HashRef', lazy_build => 1);
 
 =head1 PROVIDED METHODS
@@ -136,6 +188,9 @@ Classes that consume this role will have the following methods available
 for them:
 
 =head2 can_perform( $action, [ $constraint ] )
+
+Receives the name of an action, and possibly a constraint, and returns a true
+value if the user/role can perform the provided action.
 
 =cut
 
@@ -248,13 +303,7 @@ sub inherits_from_role {
 	return shift->does_role(@_);
 }
 
-=head1 INTERNAL METHODS
-
-These methods are only to be used internally.
-
-=head2 _build_abilities()
-
-=cut
+###### INTERNAL METHODS #######
 
 sub _build_abilities {
 	my $self = shift;
@@ -324,7 +373,7 @@ L<http://search.cpan.org/dist/Abilities/>
 
 =head1 LICENSE AND COPYRIGHT
 
-Copyright 2010-2011 Ido Perlmuter.
+Copyright 2010-2012 Ido Perlmuter.
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of either: the GNU General Public License as published

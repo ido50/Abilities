@@ -8,15 +8,15 @@ Revision history for Abilities
 	  a yes/no option. This allows more finer grained control over
 	  abilities.
 	- The can_perform() method now can only take one action, not a list.
-	  It now also takes an optional constraint.
+	  It now also takes an optional constraint. Same goes for has_feature().
 	- The required actions() method in Abilities.pm and features() method
 	  in Abilities/Features.pm now expects a different return structure,
 	  read the docs for more info
 	- Abilities::Scoped is removed since Abilities now provides the
-	  same functionality with the new constraints thing
+	  same functionality with the new constraints paradigm
 
 	[ VARIOUS CHANGES ]
-	- Now using Any::Moose 'Role' instead of Moose::Role
+	- Now using Any::Moose instead of Moose
 	- Changed the names of Abilities::takes_from() and Abilities::belongs_to()
 	  (they were the same method) to Abilities::assigned_role() and
 	  added a deprecation warning for the previous two

@@ -67,6 +67,9 @@ or just as an example of how a user management and authorization system
 that consumes these roles might look like. L<Entities::Customer> and
 L<Entities::Plan> are customer and plan classes that consume this role.
 
+Just like in L<Abilities>, features can be constrained. For more info,
+see L<Abilities/"CONSTRAINTS">.
+
 More information about how these roles work can be found in the L<Entities>
 documentation.
 
@@ -77,9 +80,12 @@ the following methods:
 
 =head2 plans()
 
-This method returns a list of all plans that a customer has subscribed to,
-or that a plan inherits from. The list should have references to the plan
-objects, not just their names.
+This method returns a list of all plan names that a customer has subscribed to,
+or that a plan inherits from.
+
+NOTE: In previous versions, this method was required to return
+an array of plan objects, not a list of plan names. This has been changed
+in version 0.3.
 
 =cut
 
@@ -87,13 +93,28 @@ requires 'plans';
 
 =head2 features()
 
-This method returns a list of all features that a customer has explicitely
-been given, or that a plan has. The list should have references to the
-feature objects, not just their names.
+This method returns a list of all feature names that a customer has explicitely
+been given, or that a plan has.
+
+NOTE: In previous versions, this method was required to return
+an array of feature objects, not a list of feature names. This has been changed
+in version 0.3.
 
 =cut
 
 requires 'features';
+
+=head1 PROVIDED ATTRIBUTES
+
+=head2 available_features
+
+Holds a hash-ref of all features available to a customer/plan object, after
+consolidating features from inherited plans (recursively) and directly granted.
+Keys of this hash-ref will be the names of the features, values will either be
+1 (for yes/no features), or a single-item array-ref with a name of a constraint
+(for constrained features).
+
+=cut
 
 has 'available_features' => (is => 'ro', isa => 'HashRef', lazy_build => 1);
 
@@ -103,6 +124,9 @@ Classes that consume this role will have the following methods provided
 to them:
 
 =head2 has_feature( $feature_name, [ $constraint ] )
+
+Receives the name of a feature, and possibly a constraint, and returns a
+true value if the customer/plan has that feature, false value otherwise.
 
 =cut
 
@@ -190,13 +214,7 @@ sub inherits_from_plan {
 	return shift->inherits_plan(@_);
 }
 
-=head1 INTERNAL METHODS
-
-These methods are only to be used internally.
-
-=head2 _build_available_features()
-
-=cut
+##### INTERNAL METHODS #####
 
 sub _build_available_features {
 	my $self = shift;
@@ -266,7 +284,7 @@ L<http://search.cpan.org/dist/Abilities/>
 
 =head1 LICENSE AND COPYRIGHT
 
-Copyright 2010-2011 Ido Perlmuter.
+Copyright 2010-2012 Ido Perlmuter.
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of either: the GNU General Public License as published
