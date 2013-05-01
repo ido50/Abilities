@@ -129,7 +129,7 @@ inherits from.
 
 Example return structure:
 
-	( 'moderator', 'supporter' ]
+	( 'moderator', 'supporter' )
 
 NOTE: In previous versions, this method was required to return
 an array of role objects, not a list of role names. This has been changed

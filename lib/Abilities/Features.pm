@@ -182,14 +182,14 @@ sub in_plan {
 	return;
 }
 
-=head2 inherits_plan( $role_name )
+=head2 inherits_plan( $plan_name )
 
 Returns a true value if the customer/plan inherits the features of
 the provided plan(s). If a customer belongs to the 'premium' plan, and
 the 'premium' plan inherits from the 'basic' plan, then C<inherits_plan('basic')>
 will be true for that customer, while C<in_plan('basic')> will be false.
 
-=head2 inherits_from_plan( $role_name )
+=head2 inherits_from_plan( $plan_name )
 
 This method is exactly the same as C<inherits_plan()>. Since version 0.3
 it is deprecated, and using it issues a deprecation warning. It will be
