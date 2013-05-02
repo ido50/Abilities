@@ -1,22 +1,34 @@
 package TestRole;
 
-use Any::Moose;
+use Moo;
 use namespace::autoclean;
 
-has 'name' => (is => 'ro', isa => 'Str', required => 1);
+has 'name' => (
+	is => 'ro',
+	required => 1
+);
 
-has 'actions' => (is => 'ro', isa => 'ArrayRef', default => sub { [] });
+has 'actions' => (
+	is => 'ro',
+	default => sub { [] }
+);
 
-has 'roles' => (is => 'ro', isa => 'ArrayRef', default => sub { [] } );
+has 'roles' => (
+	is => 'ro',
+	default => sub { [] }
+);
 
-has 'is_super' => (is => 'ro', isa => 'Bool', default => 0);
+has 'is_super' => (
+	is => 'ro',
+	default => sub { 0 }
+);
 
-with 'Abilities' => { -version => '0.3' };
+with 'Abilities';
 
-around qr/^actions|roles$/ => sub {
+around qw/actions roles/ => sub {
 	my ($orig, $self) = @_;
 
 	return @{$self->$orig || []};
 };
 
-__PACKAGE__->meta->make_immutable;
+1;

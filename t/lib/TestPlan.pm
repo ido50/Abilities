@@ -1,20 +1,29 @@
 package TestPlan;
 
-use Any::Moose;
+use Moo;
 use namespace::autoclean;
 
-has 'name' => (is => 'ro', isa => 'Str', required => 1);
+has 'name' => (
+	is => 'ro',
+	required => 1
+);
 
-has 'features' => (is => 'ro', isa => 'ArrayRef', default => sub { [] });
+has 'features' => (
+	is => 'ro',
+	default => sub { [] }
+);
 
-has 'plans' => (is => 'ro', isa => 'ArrayRef', default => sub { [] } );
+has 'plans' => (
+	is => 'ro',
+	default => sub { [] }
+);
 
-with 'Abilities::Features' => { -version => '0.3' };
+with 'Abilities::Features';
 
-around qr/^features|plans$/ => sub {
+around qw/features plans/ => sub {
 	my ($orig, $self) = @_;
 
 	return @{$self->$orig || []};
 };
 
-__PACKAGE__->meta->make_immutable;
+1;
