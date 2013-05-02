@@ -3,7 +3,7 @@
 use lib 't/lib';
 use TestRole;
 use TestUser;
-use Test::More tests => 29;
+use Test::More tests => 30;
 
 my $ra = TestRole->new(name => 'RA', actions => ['create_comment']);
 my $rc = TestRole->new(name => 'RC', actions => ['do_something']);
@@ -48,5 +48,9 @@ ok($uc->can_perform('do_something'), 'UC can do something');
 ok($ua->can_perform('edit_post', '_any_'), '_any_ works when UA has constraint on edit_post');
 ok($ua->can_perform('create_post', '_all_'), '_all_ works when UA has no constraint on create_post');
 ok($ua->can_perform('create_post', '_any_'), '_any_ also works when UA has no constrain on create_post');
+
+# roles as list of names
+my $ud = TestUser->new(name => 'UD', actions => ['do_something'], roles => [qw/ ra rb /]);
+is_deeply $ud->abilities, { do_something => 1 }, '_build_abilities skips non-blessed roles';
 
 done_testing();

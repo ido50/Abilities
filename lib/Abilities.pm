@@ -5,6 +5,7 @@ use namespace::autoclean;
 
 use Carp;
 use Hash::Merge qw/merge/;
+use Scalar::Util qw/blessed/;
 
 our $VERSION = "0.3";
 $VERSION = eval $VERSION;
@@ -323,7 +324,7 @@ sub _build_abilities {
 	}
 
 	# load actions from roles this user/role consumes
-	my @hashes = map { $_->abilities } $self->roles;
+	my @hashes = map { blessed $_ ? $_->abilities : () } $self->roles;
 
 	# merge all abilities
 	while (scalar @hashes) {
