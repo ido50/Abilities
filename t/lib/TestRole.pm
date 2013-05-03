@@ -23,7 +23,18 @@ has 'is_super' => (
 	default => sub { 0 }
 );
 
+has 'mg' => (
+	is => 'ro',
+	required => 1,
+);
+
 with 'Abilities';
+
+sub get_role {
+	my ($self, $role) = @_;
+
+	return $self->mg->{$role};
+}
 
 around qw/actions roles/ => sub {
 	my ($orig, $self) = @_;

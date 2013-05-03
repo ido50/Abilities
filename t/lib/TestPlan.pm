@@ -18,7 +18,18 @@ has 'plans' => (
 	default => sub { [] }
 );
 
+has 'mg' => (
+	is => 'ro',
+	required => 1,
+);
+
 with 'Abilities::Features';
+
+sub get_plan {
+	my ($self, $plan) = @_;
+
+	return $self->mg->{$plan};
+}
 
 around qw/features plans/ => sub {
 	my ($orig, $self) = @_;

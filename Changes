@@ -1,6 +1,12 @@
 Revision history for Abilities
 
 {{$NEXT}}
+	[ BUGFIXES ]
+	- Fixed all bugs introduced in versions 0.3 and 0.4 that made this
+	  package unusable (see the UPGRADING FROM v0.2 sections in both
+	  Abilities.pm and Abilities/Features.pm for more info)
+
+0.4       2013-05-02 21:06:25 Asia/Jerusalem
 	[ VARIOUS CHANGES ]
 	- Moved from Any::Moose to Moo as per the former's deprecation
 
@@ -25,12 +31,12 @@ Revision history for Abilities
 
 	[ VARIOUS CHANGES ]
 	- Now using Any::Moose instead of Moose
-	- Changed the names of Abilities::takes_from() and Abilities::belongs_to()
+	- Changed the names of Abilities::assigned_role() and Abilities::belongs_to()
 	  (they were the same method) to Abilities::assigned_role() and
 	  added a deprecation warning for the previous two
-	- Changed the name of Abilities::inherits_from_role() to Abilities::does_role()
+	- Changed the name of Abilities::does_role() to Abilities::does_role()
 	  and added a deprecation warning to the previous one
-	- Changed the name of Abilities::Features::inherits_from_plan()
+	- Changed the name of Abilities::Features::inherits_plan()
 	  to Abilities::Features::inherits_plan() and added a deprecation
 	  warning for the previous one
 	- Created a test suite

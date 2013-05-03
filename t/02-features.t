@@ -1,18 +1,23 @@
 #!perl
 
 use lib 't/lib';
+use TestManager;
 use TestPlan;
 use TestCustomer;
 use Test::More tests => 14;
 
-my $pa = TestPlan->new(name => 'PA', features => ['ssl', ['storage', '5GB']]);
-my $pb = TestPlan->new(name => 'PB', features => ['backups', ['storage', '10GB']], plans => [$pa]);
-my $pc = TestPlan->new(name => 'PC', features => ['backups', ['phone_support', '24hrs']]);
+my $mg = TestManager->new;
 
-my $ca = TestCustomer->new(name => 'CA', plans => [$pa]);
-my $cb = TestCustomer->new(name => 'CB', plans => [$pb], features => [['phone_support', '12h']]);
-my $cc = TestCustomer->new(name => 'CC', plans => [$pc]);
-my $cd = TestCustomer->new(name => 'CD', features => [['storage', '200GB']]);
+my $pa = TestPlan->new(name => 'PA', features => ['ssl', ['storage', '5GB']], mg => $mg);
+my $pb = TestPlan->new(name => 'PB', features => ['backups', ['storage', '10GB']], plans => ['PA'], mg => $mg);
+my $pc = TestPlan->new(name => 'PC', features => ['backups', ['phone_support', '24hrs']], mg => $mg);
+
+my $ca = TestCustomer->new(name => 'CA', plans => ['PA'], mg => $mg);
+my $cb = TestCustomer->new(name => 'CB', plans => ['PB'], features => [['phone_support', '12h']], mg => $mg);
+my $cc = TestCustomer->new(name => 'CC', plans => ['PC'], mg => $mg);
+my $cd = TestCustomer->new(name => 'CD', features => [['storage', '200GB']], mg => $mg);
+
+$mg->add_objects($pa, $pb, $pc);
 
 ok($pa, 'Got PA');
 ok($pb, 'Got PB');

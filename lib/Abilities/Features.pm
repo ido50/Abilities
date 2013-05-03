@@ -2,13 +2,12 @@ package Abilities::Features;
 
 # ABSTRACT: Extends Abilities with plan management for subscription-based web services.
 
+use Carp;
+use Hash::Merge qw/merge/;
 use Moo::Role;
 use namespace::autoclean;
 
-use Carp;
-use Hash::Merge qw/merge/;
-
-our $VERSION = "0.4";
+our $VERSION = "0.5";
 $VERSION = eval $VERSION;
 
 =head1 NAME
@@ -83,6 +82,10 @@ the following methods:
 This method returns a list of all plan names that a customer has subscribed to,
 or that a plan inherits from.
 
+Example return structure:
+
+	( 'starter', 'diamond' )
+
 NOTE: In previous versions, this method was required to return
 an array of plan objects, not a list of plan names. This has been changed
 in version 0.3.
@@ -94,7 +97,13 @@ requires 'plans';
 =head2 features()
 
 This method returns a list of all feature names that a customer has explicitely
-been given, or that a plan has.
+been given, or that a plan has. If a certain feature is constrained, then
+it should be added to the list as an array reference with two items, the first being
+the name of the feature, the second being the name of the constraint.
+
+Example return structure:
+
+	( 'ssh_access', [ 'multiple_users', 5 ] )
 
 NOTE: In previous versions, this method was required to return
 an array of feature objects, not a list of feature names. This has been changed
@@ -104,22 +113,13 @@ in version 0.3.
 
 requires 'features';
 
-=head1 PROVIDED ATTRIBUTES
+=head2 get_plan( $name )
 
-=head2 available_features
-
-Holds a hash-ref of all features available to a customer/plan object, after
-consolidating features from inherited plans (recursively) and directly granted.
-Keys of this hash-ref will be the names of the features, values will either be
-1 (for yes/no features), or a single-item array-ref with a name of a constraint
-(for constrained features).
+Returns the object of the plan named C<$plan>.
 
 =cut
 
-has 'available_features' => (
-	is => 'lazy',
-	isa => sub { die "abilities must be a hash-ref" unless ref $_[0] eq 'HASH' },
-);
+requires 'get_plan';
 
 =head1 METHODS
 
@@ -179,7 +179,7 @@ sub in_plan {
 	return unless $plan;
 
 	foreach ($self->plans) {
-		return 1 if $_->name eq $plan;
+		return 1 if $_ eq $plan;
 	}
 
 	return;
@@ -192,12 +192,6 @@ the provided plan(s). If a customer belongs to the 'premium' plan, and
 the 'premium' plan inherits from the 'basic' plan, then C<inherits_plan('basic')>
 will be true for that customer, while C<in_plan('basic')> will be false.
 
-=head2 inherits_from_plan( $plan_name )
-
-This method is exactly the same as C<inherits_plan()>. Since version 0.3
-it is deprecated, and using it issues a deprecation warning. It will be
-removed in future versions.
-
 =cut
 
 sub inherits_plan {
@@ -205,21 +199,24 @@ sub inherits_plan {
 
 	return unless $plan;
 
-	foreach ($self->plans) {
-		return 1 if $_->name eq $plan || $_->inherits_plan($plan);
+	foreach (map([$_, $self->get_plan($_)], $self->plans)) {
+		return 1 if $_->[0] eq $plan || $_->[1]->inherits_plan($plan);
 	}
 
 	return;
 }
 
-sub inherits_from_plan {
-	carp __PACKAGE__.'::inherits_from_plan() is deprecated, please use inherits_plan() instead.';
-	return shift->inherits_plan(@_);
-}
+=head2 available_features
 
-##### INTERNAL METHODS #####
+Returns a hash-ref of all features available to a customer/plan object, after
+consolidating features from inherited plans (recursively) and directly granted.
+Keys of this hash-ref will be the names of the features, values will either be
+1 (for yes/no features), or a single-item array-ref with a name of a constraint
+(for constrained features).
 
-sub _build_available_features {
+=cut
+
+sub available_features {
 	my $self = shift;
 
 	my $features = {};
@@ -237,7 +234,7 @@ sub _build_available_features {
 	}
 
 	# load features from plans this customer/plan has
-	my @hashes = map { $_->available_features } $self->plans;
+	my @hashes = map { $self->get_plan($_)->available_features } $self->plans;
 
 	# merge all features
 	while (scalar @hashes) {
@@ -246,6 +243,33 @@ sub _build_available_features {
 
 	return $features;
 }
+
+=head1 UPGRADING FROM v0.2
+
+Up to version 0.2, C<Abilities::Features> required the C<plans> and C<features>
+attributes to return objects. While this made it easier to calculate
+available features, it made this system a bit less flexible.
+
+In version 0.3, C<Abilities::Features> changed the requirement such that both these
+attributes need to return strings (the names of the plans/features). If your implementation
+has granted plans and features stored in a database by names, this made life a bit easier
+for you. On other implementations, however, this has the potential of
+requiring you to write a bit more code. If that is the case, I apologize,
+but keep in mind that you can still store granted plans and features
+any way you want in a database (either by names or by references), just
+as long as you correctly provide C<plans> and C<features>.
+
+Unfortunately, in both versions 0.3 and 0.4, I made a bit of a mess
+that rendered both versions unusable. While I documented the C<plans>
+attribute as requiring plan names instead of plan objects, the actual
+implementation still required plan objects. This has now been fixed,
+but it also meant I had to add a new requirement: consuming classes
+now have to provide a method called C<get_plan()> that takes the name
+of a plan and returns its object. This will probably means loading the
+plan from a database and blessing it into your plan class that also consumes
+this module.
+
+I apologize for any inconvenience this might have caused.
 
 =head1 AUTHOR
 

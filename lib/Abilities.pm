@@ -2,14 +2,12 @@ package Abilities;
 
 # ABSTRACT: Simple, hierarchical user authorization for web applications, with optional support for plan-based (paid) services.
 
+use Carp;
+use Hash::Merge qw/merge/;
 use Moo::Role;
 use namespace::autoclean;
 
-use Carp;
-use Hash::Merge qw/merge/;
-use Scalar::Util qw/blessed/;
-
-our $VERSION = "0.4";
+our $VERSION = "0.5";
 $VERSION = eval $VERSION;
 
 =head1 NAME
@@ -29,7 +27,7 @@ Abilities - Simple, hierarchical user authorization for web applications, with o
 
 	# get a user object that consumed the Abilities role
 	my $user = MyApp->get_user('username'); # $user is a User object
-		
+
 	# check if the user is able to do something
 	if ($user->can_perform('something')) {
 		do_something();
@@ -168,27 +166,18 @@ will be able to perform any action, even if it wasn't granted to them.
 
 requires 'is_super';
 
-=head1 PROVIDED ATTRIBUTES
+=head2 get_role( $name )
 
-=head2 abilities
-
-Holds a hash reference of all the abilities a user/role object can
-perform, after consolidating abilities inherited from roles (including
-recursively) and directly granted. Keys in the hash-ref will be names
-of actions, values will be 1 (for yes/no actions) or a single-item array-ref
-with the name of a constraint (for constrained actions).
+This is a method that returns the object of the role named C<$name>.
 
 =cut
 
-has 'abilities' => (
-	is => 'lazy',
-	isa => sub { die "abilities must be a hash-ref" unless ref $_[0] eq 'HASH' },
-);
+requires 'get_role';
 
 =head1 PROVIDED METHODS
 
 Classes that consume this role will have the following methods available
-for them:
+to them:
 
 =head2 can_perform( $action, [ $constraint ] )
 
@@ -238,16 +227,8 @@ sub can_perform {
 This method receives a role name and returns a true value if the user/role
 is a direct member of the provided role. Only direct membership is checked,
 so the user/role must be specifically assigned to the provided role, and
-not to a role that inherits from that role (see L</"inherits_from_role( $role )">
+not to a role that inherits from that role (see L</"does_role( $role )">
 instead).
-
-=head2 takes_from( $role_name )
-
-=head2 belongs_to( $role_name )
-
-The above two methods are the same as C<assigned_role()>. Since version
-0.3 they are deprecated, and using them will issue a deprecation warning.
-They will be removed in future versions.
 
 =cut
 
@@ -257,20 +238,10 @@ sub assigned_role {
 	return unless $role;
 
 	foreach ($self->roles) {
-		return 1 if $_->name eq $role;
+		return 1 if $_ eq $role;
 	}
 
 	return;
-}
-
-sub takes_from {
-	carp __PACKAGE__.'::takes_from() is deprecated, please use assigned_role() instead.';
-	return shift->assigned_role(@_);
-}
-
-sub belongs_to {
-	carp __PACKAGE__.'::belongs_to() is deprecated, please use assigned_role() instead.';
-	return shift->assigned_role(@_);
 }
 
 =head2 does_role( $role_name )
@@ -281,12 +252,6 @@ into account, so if a user was directly assigned to the 'admins' role,
 and the 'admins' role inherits from the 'devs' role, then C<does_role('devs')>
 will return true for that user (while C<assigned_role('devs')> returns false).
 
-=head2 inherits_from_role( $role_name )
-
-This method is exactly the same as C<does_role()>. Since version 0.3 it
-is deprecated and using it issues a deprecation warning. It will be removed
-in future versions.
-
 =cut
 
 sub does_role {
@@ -294,21 +259,24 @@ sub does_role {
 
 	return unless $role;
 
-	foreach ($self->roles) {
-		return 1 if $_->name eq $role || $_->does_role($role);
+	foreach (map([$_, $self->get_role($_)], $self->roles)) {
+		return 1 if $_->[0] eq $role || $_->[1]->does_role($role);
 	}
 
 	return;
 }
 
-sub inherits_from_role {
-	carp __PACKAGE__.'::inherits_from_role() is deprecated, please use does_role() instead.';
-	return shift->does_role(@_);
-}
+=head2 abilities()
 
-###### INTERNAL METHODS #######
+Returns a hash reference of all the abilities a user/role object can
+perform, after consolidating abilities inherited from roles (including
+recursively) and directly granted. Keys in the hash-ref will be names
+of actions, values will be 1 (for yes/no actions) or a single-item array-ref
+with the name of a constraint (for constrained actions).
 
-sub _build_abilities {
+=cut
+
+sub abilities {
 	my $self = shift;
 
 	my $abilities = {};
@@ -326,7 +294,7 @@ sub _build_abilities {
 	}
 
 	# load actions from roles this user/role consumes
-	my @hashes = map { blessed $_ ? $_->abilities : () } $self->roles;
+	my @hashes = map { $self->get_role($_)->abilities } $self->roles;
 
 	# merge all abilities
 	while (scalar @hashes) {
@@ -335,6 +303,33 @@ sub _build_abilities {
 
 	return $abilities;
 }
+
+=head1 UPGRADING FROM v0.2
+
+Up to version 0.2, C<Abilities> required the C<roles> and C<actions>
+attributes to return objects. While this made it easier to calculate
+abilities, it made this system a bit less flexible.
+
+In version 0.3, C<Abilities> changed the requirement such that both these
+attributes need to return strings (the names of the roles/actions). If your implementation
+has granted roles and actions stored in a database by names, this made life a bit easier
+for you. On other implementations, however, this has the potential of
+requiring you to write a bit more code. If that is the case, I apologize,
+but keep in mind that you can still store granted roles and actions
+any way you want in a database (either by names or by references), just
+as long as you correctly provide C<roles> and C<actions>.
+
+Unfortunately, in both versions 0.3 and 0.4, I made a bit of a mess
+that rendered both versions unusable. While I documented the C<roles>
+attribute as requiring role names instead of role objects, the actual
+implementation still required role objects. This has now been fixed,
+but it also meant I had to add a new requirement: consuming classes
+now have to provide a method called C<get_role()> that takes the name
+of a role and returns its object. This will probably means loading the
+role from a database and blessing it into your role class that also consumes
+this module.
+
+I apologize for any inconvenience this might have caused.
 
 =head1 AUTHOR
 

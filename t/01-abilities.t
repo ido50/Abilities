@@ -1,17 +1,22 @@
 #!perl
 
 use lib 't/lib';
+use TestManager;
 use TestRole;
 use TestUser;
-use Test::More tests => 30;
+use Test::More tests => 29;
 
-my $ra = TestRole->new(name => 'RA', actions => ['create_comment']);
-my $rc = TestRole->new(name => 'RC', actions => ['do_something']);
-my $rb = TestRole->new(name => 'RB', actions => ['edit_comment', 'delete_comment', 'edit_post', 'delete_post'], roles => [$rc]);
+my $mg = TestManager->new;
 
-my $ua = TestUser->new(name => 'UA', actions => ['create_post', ['edit_post', 'his'], ['delete_post', 'his']], roles => [$ra]);
-my $ub = TestUser->new(name => 'UB', is_super => 1);
-my $uc = TestUser->new(name => 'UC', actions => [['create_post', 'news_only']], roles => [$ra, $rb]);
+my $ra = TestRole->new(name => 'RA', actions => ['create_comment'], mg => $mg);
+my $rc = TestRole->new(name => 'RC', actions => ['do_something'], mg => $mg);
+my $rb = TestRole->new(name => 'RB', actions => ['edit_comment', 'delete_comment', 'edit_post', 'delete_post'], roles => ['RC'], mg => $mg);
+
+my $ua = TestUser->new(name => 'UA', actions => ['create_post', ['edit_post', 'his'], ['delete_post', 'his']], roles => ['RA'], mg => $mg);
+my $ub = TestUser->new(name => 'UB', is_super => 1, mg => $mg);
+my $uc = TestUser->new(name => 'UC', actions => [['create_post', 'news_only']], roles => ['RA', 'RB'], mg => $mg);
+
+$mg->add_objects($ra, $rb, $rc);
 
 ok($ra, 'Got RA');
 ok($rb, 'Got RB');
@@ -48,9 +53,5 @@ ok($uc->can_perform('do_something'), 'UC can do something');
 ok($ua->can_perform('edit_post', '_any_'), '_any_ works when UA has constraint on edit_post');
 ok($ua->can_perform('create_post', '_all_'), '_all_ works when UA has no constraint on create_post');
 ok($ua->can_perform('create_post', '_any_'), '_any_ also works when UA has no constrain on create_post');
-
-# roles as list of names
-my $ud = TestUser->new(name => 'UD', actions => ['do_something'], roles => [qw/ ra rb /]);
-is_deeply $ud->abilities, { do_something => 1 }, '_build_abilities skips non-blessed roles';
 
 done_testing();
