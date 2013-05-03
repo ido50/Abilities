@@ -1,6 +1,8 @@
 Revision history for Abilities
 
 {{$NEXT}}
+
+0.5       2013-05-03 20:56:51 Asia/Jerusalem
 	[ BUGFIXES ]
 	- Fixed all bugs introduced in versions 0.3 and 0.4 that made this
 	  package unusable (see the UPGRADING FROM v0.2 sections in both
