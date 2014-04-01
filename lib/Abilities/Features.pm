@@ -5,9 +5,8 @@ package Abilities::Features;
 use Carp;
 use Hash::Merge qw/merge/;
 use Moo::Role;
-use namespace::autoclean;
 
-our $VERSION = "0.5";
+our $VERSION = "1.000000";
 $VERSION = eval $VERSION;
 
 =head1 NAME
@@ -18,7 +17,7 @@ Abilities::Features - Extends Abilities with plan management for subscription-ba
 
 	package Customer;
 	
-	use Moose; # or Moo
+	use Moo; # or Moose
 	with 'Abilities::Features';
 	
 	# ... define required methods ...
@@ -311,7 +310,7 @@ L<http://search.cpan.org/dist/Abilities/>
 
 =head1 LICENSE AND COPYRIGHT
 
-Copyright 2010-2013 Ido Perlmuter.
+Copyright 2010-2014 Ido Perlmuter.
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of either: the GNU General Public License as published

@@ -5,9 +5,8 @@ package Abilities;
 use Carp;
 use Hash::Merge qw/merge/;
 use Moo::Role;
-use namespace::autoclean;
 
-our $VERSION = "0.5";
+our $VERSION = "1.000000";
 $VERSION = eval $VERSION;
 
 =head1 NAME
@@ -18,7 +17,7 @@ Abilities - Simple, hierarchical user authorization for web applications, with o
 
 	package User;
 	
-	use Moose; # or Moo
+	use Moo; # or Moose
 	with 'Abilities';
 	
 	# ... define required methods ...
@@ -84,6 +83,8 @@ role in the Entities distribution.
 
 =head2 CONSTRAINTS
 
+=head3 BASIC PATTERN
+
 Generally, an ability is a yes/no option. Either the user can or can't perform
 a specific action. At times, this might not be flexible enough, and the user's
 ability to perform a certain action should be constrained. For example, a user
@@ -94,10 +95,8 @@ set a name-based constraint when granting a user/role a certain ability. Then,
 checking the user's ability to perform an action can include the constraint,
 for example:
 
-	if ($post->{user_id} eq $user->id && $user->can_perform('edit_posts', 'only_his')) {
-		# allow
-	} else {
-		# do not allow
+	if ($post->{user_id} ne $user->id && $user->can_perform('edit_posts', 'only_theirs')) {
+		# user is trying to edit a post that's not theirs, do not allow
 	}
 
 Here, the C<Abilities> module allows you to check if the user's ability is constrained,
@@ -105,6 +104,57 @@ but the responsibility for making sure the constraint is actually relevant
 to the case is left to you. In the above example, it is the application that
 checks if the post the user is trying to edit was created by them, not the C<Abilities>
 module.
+
+Defining constraints on an action does not mean you have to select a particular
+constraint for every user. If a user is granted an ability that has constraints,
+but a constraint is not defined for that user, then the user should be able to
+perform that action no matter the situation.
+
+This reference table should make basic constraints easier to understand:
+
+	+============+================+====================================================+
+	| Ability    | Constraint     | Explanation                                        |
+	+============+================+====================================================+
+	| edit_posts | only_theirs    | user can only edit posts owned by them             |
+	| edit_posts | only_in_sports | user can edit all posts under the "sports" section |
+	| edit_posts | none           | user can edit all posts by anyone in any section   |
+	+============+================+====================================================+
+
+=head3 HIERARCHICAL PATTERN
+
+	This feature is new in version 1.0.0
+
+The basic constraint pattern is useful for many situations, but sometimes a hierarchical
+pattern is more apt or comfortable. For example, say your application provides
+an action called C<read_article>. You wish that by default, users granted this
+ability can only read the article's introduction. Some users (say paying users)
+should be able to read both the introduction and the full body, and yet others should
+I<also> be able to download a PDF of the article. This is basically a ladder of
+constraints in which every "higher" rung receives all the "privileges" of the previous
+one, plus new ones. You could implement this using different abilities for every case,
+but this is tedious and annoying. You could also implement this using the basic constraint
+mechanism, but it is somewhat confusing and uncomfortable; you might find yourself writing
+endless C<if> statements that check every step of the way towards the top of the ladder.
+
+The hierarchical pattern allows you to achieve this easily. By default, any user that gets
+the ability (with no specific constraint) is only allowed the basic privileges that come
+with it. This is in contrast to the basic pattern, in which not constraining a user's ability
+means providing them all the privileges that come with it. A user that receives the ability with
+a certain constraint, gets all the privileges that come by default, and those that come with every
+constraint defined "lower" than it.
+
+The following reference table should make hierarchical constraints easier to understand:
+
+	+===============+============+===============================================+
+	| Ability       | Constraint | Explanation                                   |
+	+===============+============+===============================================+
+	| read_articles | none       | user can only read articles' introductions    |
+	| read_articles | full       | user can read introductions and complete body |
+	| read_articles | pdf        | user can read intros, bodies and download pdf |
+	+===============+========================+===================================+
+
+If you want to use hierarchical constraints, you will need to provide a method that returns
+the hierarchy of a specific ability's constraints (see L</"get_hierarchy( $action )">).
 
 =head2 (PAID) SUBSCRIPTION-BASED WEB SERVICES
 
@@ -174,6 +224,18 @@ This is a method that returns the object of the role named C<$name>.
 
 requires 'get_role';
 
+=head2 get_hierarchy( $action )
+
+This method is only required if you're using L<hierarchical constraints|/"HIERARCHICAL PATTERN">.
+For a given action, it should return an array of constraints in ascending order
+(every constraint in the array includes all constraints before it).
+
+Note that there's always a default constraint that you don't need to define. Therefore,
+the first item in the array is actually the second in the hierarchy. For the example
+in the hierarchical constraints section, C<get_hierarchy('read_articles')> should return:
+
+	( 'full', 'pdf' )
+
 =head1 PROVIDED METHODS
 
 Classes that consume this role will have the following methods available
@@ -183,6 +245,22 @@ to them:
 
 Receives the name of an action, and possibly a constraint, and returns a true
 value if the user/role can perform the provided action.
+
+If C<$constraint> is C<_any_>, the method will return a true value if the user
+was granted the ability, regardless of any constraint. Their ability may or may
+not be constrained, it wouldn't matter.
+
+If C<$constraint> is C<_all_>, the method will return a true value only if the
+user was granted the ability with no constraint. This is equivalent to calling
+the method without supplying C<$constraint> at all.
+
+If C<$constraint> begins with C<@>, a L<hierarchical|/"HIERARCHICAL PATTERN">
+check will be performed. L<get_hierarchy()|/"get_hierarchy( $action )"> will be
+called to determine the hierarchy for the action, and the ability will be
+granted if the user's constraint is the same or higher than C<$constraint> according
+to the hierarchy. Looking at the example in the L</"HIERARCHICAL PATTERN"> section,
+if C<$constraint> is C<@full> and the user's constraint is C<pdf>, then the ability
+will be granted, since C<pdf> is larger than C<full> in the hierarchy.
 
 =cut
 
@@ -196,7 +274,7 @@ sub can_perform {
 	return unless $self->abilities->{$action};
 
 	# user/role has ability, but is there a constraint?
-	if ($constraint && $constraint ne '_all_') {
+	if ($constraint && $constraint ne '_all_' && $constraint !~ m/^@/) {
 		# return true if user/role's ability is not constrained
 		return 1 if !ref $self->abilities->{$action};
 		
@@ -214,6 +292,11 @@ sub can_perform {
 			carp "Expected an array-ref of constraints for action $action, received ".ref($self->abilities->{$action}).", returning false.";
 			return;
 		}
+	} elsif ($constraint && $constraint =~ m/^@/) {
+		carp "Hierarchical constraints require the get_hierarchy() method to be implemented"
+			unless $self->can('get_hierarchy');
+		my @constraints = $self->get_hierarchy($action);
+		# TODO: COMPLETE THIS
 	} else {
 		# no constraint, make sure user/role's ability is indeed
 		# not constrained
@@ -371,7 +454,7 @@ L<http://search.cpan.org/dist/Abilities/>
 
 =head1 LICENSE AND COPYRIGHT
 
-Copyright 2010-2013 Ido Perlmuter.
+Copyright 2010-2014 Ido Perlmuter.
 
 This program is free software; you can redistribute it and/or modify it
 under the terms of either: the GNU General Public License as published
